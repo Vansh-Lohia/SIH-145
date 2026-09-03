@@ -1,0 +1,43 @@
+# --- Data: never commit captures, logs, or trained models ---
+data/pcaps/
+data/zeek_logs/
+data/labels/
+*.pcap
+*.pcapng
+*.log
+*.jsonl
+!schema/*.json
+models_out/
+*.pkl
+*.joblib
+*.txt.model
+*.onnx
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Secrets / local config ---
+.env
+.env.*
+*.local
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
