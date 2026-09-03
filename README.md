@@ -43,10 +43,14 @@ tests/
 
 ## Build order (see `CLAUDE.md` §9)
 
-1. **Environment** — Zeek emitting `ssl.log` from replayed pcap; tcpreplay harness; skeleton + schema committed. ← *you are here*
-2. **Baseline** — in-house JA4 + tabular features + LightGBM, evaluated leave-one-family-out.
-3. **Sequence model** — 1D-CNN on SPLT.
-4. **Fusion**, 5. **Ablation**, 6. **Streaming integration**.
+1. **Environment** — Zeek reader + tcpreplay harness; skeleton + schema committed. ✅
+2. **Baseline** — in-house JA4 + tabular features + LightGBM, leave-one-family-out. ✅
+3. **Sequence model** — 1D-CNN on SPLT. ✅
+4. **Fusion** (score averaging) ✅, 5. **Ablation** ✅, 6. **Streaming** (asyncio, p99 latency) ✅
+
+All six are wired together in an end-to-end prototype driven by a synthetic data generator
+(so it runs before real Zeek logs exist). The generator is a **stand-in for the real data
+plan** (`CLAUDE.md` §8), not a replacement for it.
 
 ## Getting started
 
@@ -55,7 +59,26 @@ python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\act
 pip install -r requirements.txt
 ```
 
-Zeek and tcpreplay are external tools (install separately). See [`docs/environment.md`](docs/environment.md).
+### Run the end-to-end prototype
+
+```bash
+python scripts/run_prototype.py
+```
+
+This generates a labelled synthetic dataset, featurizes it (SPLT + JA4 + certificate),
+trains the LightGBM baseline, and prints the honest evaluation — the **random-split** number
+next to the **leave-one-family-out** number — then trains the 1D-CNN, fuses, runs the
+ablation, and finally streams schema-conformant alerts with a p99 latency measurement.
+
+### Run the tests
+
+```bash
+python -m pytest tests/ -q
+```
+
+Zeek and tcpreplay are external tools for real captures (install separately). See
+[`docs/environment.md`](docs/environment.md). Prototype results and the leakage bug found
+during bring-up are written up in [`docs/evaluation.md`](docs/evaluation.md).
 
 ## Evaluation discipline (see `CLAUDE.md` §7)
 

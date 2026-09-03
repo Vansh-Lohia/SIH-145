@@ -15,10 +15,14 @@ shap
 # Sequence model (1D-CNN). Torch chosen for CPU inference; pin at integration time.
 torch
 
+# Model persistence
+joblib
+
 # Streaming
 # (asyncio is stdlib)
 
-# Dev / test
+# Schema validation + dev/test
+jsonschema
 pytest
 ruff
 
