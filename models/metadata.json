@@ -1,17 +1,17 @@
 {
   "dataset": "portscan-lab/dataset/portscan_dataset.csv",
-  "trained_at": "2026-09-03T16:03:21.628067+00:00",
+  "trained_at": "2026-09-03T17:33:46.817830+00:00",
   "test_size": 0.3,
-  "n_train": 4485,
-  "n_test": 1923,
+  "n_train": 4058,
+  "n_test": 1740,
   "label_info": {
-    "n_rows": 6408,
+    "n_rows": 5798,
     "label_column": "Label",
     "label_counts": {
-      "PortScan": 6226,
-      "BENIGN": 182
+      "PortScan": 5620,
+      "BENIGN": 178
     },
-    "positive_rate": 0.9715980024968789,
+    "positive_rate": 0.9692997585374267,
     "columns_total": 23
   },
   "leakage_caveat": "CIC CSV lacks src/dst IP and timestamp columns; this is a stratified RANDOM split. Offline metrics do NOT prove real-world streaming performance (spec section 25).",
@@ -28,38 +28,38 @@
   "n_estimators": 100,
   "random_state": 42,
   "holdout_metrics": {
-    "precision": 0.9989304812834224,
+    "precision": 1.0,
     "recall": 1.0,
-    "f1": 0.9994649545211343,
-    "roc_auc": 0.9817792485886704,
-    "pr_auc": 0.9989281920157522,
+    "f1": 1.0,
+    "roc_auc": 1.0,
+    "pr_auc": 1.0,
     "confusion_matrix": [
       [
         53,
-        2
+        0
       ],
       [
         0,
-        1868
+        1687
       ]
     ]
   },
   "feature_importances": {
-    "Fwd IAT Total": 0.24256643812675718,
-    "Fwd IAT Max": 0.1810918621362677,
-    "Total Fwd Packets": 0.13122061527843834,
-    "Fwd Header Length": 0.13052523024882676,
-    "Fwd IAT Std": 0.11129735521452341,
-    "Fwd IAT Mean": 0.10002589096805976,
-    "Fwd IAT Min": 0.0300107662490818,
-    "Fwd Packet Length Max": 0.018156601862116397,
-    "act_data_pkt_fwd": 0.017621555210796697,
-    "Fwd Packet Length Mean": 0.009065368599060762,
-    "Total Length of Fwd Packets": 0.008849138132171974,
-    "Fwd PSH Flags": 0.008730752702326355,
-    "Fwd Packet Length Std": 0.008646741351928342,
-    "Init_Win_bytes_forward": 0.002191683919639563,
-    "min_seg_size_forward": 4.943800615982224e-15,
+    "Fwd IAT Max": 0.2113906396963849,
+    "Fwd IAT Total": 0.19269592749674144,
+    "Fwd IAT Mean": 0.15150221930508798,
+    "Fwd IAT Std": 0.13008555086327986,
+    "Fwd Header Length": 0.1098692277084977,
+    "Total Fwd Packets": 0.08062533572245352,
+    "Fwd IAT Min": 0.05204423755230064,
+    "Total Length of Fwd Packets": 0.03433953218467028,
+    "Fwd PSH Flags": 0.017910254005024103,
+    "Fwd Packet Length Max": 0.009249295309366988,
+    "Fwd Packet Length Mean": 0.008709716874541978,
+    "Init_Win_bytes_forward": 0.0015778493218824568,
+    "act_data_pkt_fwd": 1.8316777273346627e-07,
+    "Fwd Packet Length Std": 3.0791991584540814e-08,
+    "min_seg_size_forward": 3.8880279339702255e-15,
     "Fwd Packet Length Min": 0.0,
     "Fwd URG Flags": 0.0
   },
