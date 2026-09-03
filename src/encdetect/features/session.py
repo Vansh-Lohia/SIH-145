@@ -39,6 +39,10 @@ class Session:
     cert: dict[str, Any] | None = None
     tcp: dict[str, Any] | None = None
     packets: list[Packet] = field(default_factory=list)
+    # JA4 already computed upstream (e.g. FoxIO's Zeek package in ssl.log). When set,
+    # featurize() uses it directly instead of recomputing from a raw ClientHello.
+    ja4_precomputed: str = ""
+    ja4s: str = ""
     tls_version_str: str = ""          # e.g. "TLS 1.2" / "TLS 1.3" (from ssl.log)
     start_ts: float = 0.0
     end_ts: float = 0.0
@@ -73,8 +77,14 @@ def featurize(session: Session, n_packets: int = splt.DEFAULT_N) -> FeatureBundl
 
     # --- Family 2: handshake fingerprint (JA4+) ---
     ja4_hash = ""
-    if session.client_hello:
+    comp = None
+    if session.ja4_precomputed:
+        # JA4 from ssl.log (FoxIO). Recover component features by parsing the string.
+        ja4_hash = session.ja4_precomputed
+        comp = ja4.parse_ja4_a(ja4_hash)
+    elif session.client_hello:
         ja4_hash, comp = ja4.ja4_from_client_hello(session.client_hello)
+    if comp is not None:
         tabular["ja4_cipher_count"] = float(comp.cipher_count)
         tabular["ja4_ext_count"] = float(comp.extension_count)
         tabular["ja4_sni_present"] = float(comp.sni_present)

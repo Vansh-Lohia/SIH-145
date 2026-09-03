@@ -1,0 +1,9 @@
+# Keep LF on files consumed by WSL/Zeek so a Windows checkout doesn't inject CRLF.
+*.sh        text eol=lf
+*.zeek      text eol=lf
+scripts/run_zeek.sh text eol=lf
+tests/fixtures/zeek/** text eol=lf
+
+# Never touch binaries.
+*.pcap      binary
+*.pcapng    binary

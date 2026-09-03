@@ -99,6 +99,34 @@ class JA4Components:
     alpn: str = ""
 
 
+def parse_ja4_a(ja4: str) -> JA4Components:
+    """Recover the raw component features from a JA4 string's first segment.
+
+    Lets us reuse a JA4 computed elsewhere (e.g. FoxIO's Zeek package in ssl.log) as
+    features without the raw ClientHello. Layout of segment `a`:
+        [0]=transport  [1:3]=version  [3]=sni(d/i)  [4:6]=cipher_count  [6:8]=ext_count  [8:10]=alpn
+    e.g. "t13d3013h2" -> tcp, TLS1.3, SNI present, 30 ciphers, 13 extensions, ALPN "h2".
+    """
+    a = ja4.split("_", 1)[0]
+    if len(a) < 10:
+        return JA4Components()
+
+    def _int(s: str) -> int:
+        try:
+            return int(s)
+        except ValueError:
+            return 0
+
+    return JA4Components(
+        transport=a[0],
+        tls_version=a[1:3],
+        sni_present=(a[3] == "d"),
+        cipher_count=_int(a[4:6]),
+        extension_count=_int(a[6:8]),
+        alpn=a[8:10],
+    )
+
+
 def ja4_from_client_hello(client_hello: dict) -> tuple[str, JA4Components]:
     """Build the JA4 fingerprint of a ClientHello and its raw components.
 
