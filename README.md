@@ -80,6 +80,22 @@ Zeek and tcpreplay are external tools for real captures (install separately). Se
 [`docs/environment.md`](docs/environment.md). Prototype results and the leakage bug found
 during bring-up are written up in [`docs/evaluation.md`](docs/evaluation.md).
 
+### Real captures (Zeek → labels → dataset)
+
+```bash
+# 1. Run Zeek (JA4 + per-packet SPLT) over a pcap  (inside WSL):
+bash scripts/run_zeek.sh data/pcaps/<name>.pcap data/zeek_logs/<name>
+
+# 2. Label it: write data/labels/<name>.jsonl  (see src/encdetect/labels.py)
+
+# 3. Build a labelled feature dataset across every capture, and evaluate:
+python scripts/build_dataset.py --scan --eval
+```
+
+Data provenance (which CTU captures, how to fetch them) is in
+[`data/SOURCES.md`](data/SOURCES.md). Captures and Zeek logs are git-ignored; label sidecars
+are committed. A real Dridex capture (CTU-251-1) is already wired through this path.
+
 ## Evaluation discipline (see `CLAUDE.md` §7)
 
 The headline number is **leave-one-family-out**, not the random split. Never split flows

@@ -9,6 +9,9 @@ data/labels/
 !schema/*.json
 # small committed Zeek fixtures for reader tests (regenerable, but handy for CI without WSL)
 !tests/fixtures/**
+# label sidecars are hand-authored metadata, not generated — keep them in version control
+!data/labels/
+!data/labels/*.jsonl
 models_out/
 *.pkl
 *.joblib
