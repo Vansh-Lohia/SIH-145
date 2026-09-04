@@ -67,6 +67,24 @@ results should be read as provisional** until benign traffic shares the malware'
 environment. See `docs/evaluation.md` for the first real leave-one-family-out result and
 what it does and doesn't tell us.
 
+## Modern malware — malware-traffic-analysis.net
+
+Unlike CTU (2011-2018 era), this site publishes recent real-world infection captures. Used
+to test whether the detector generalizes to modern TLS 1.3 malware — it does not (see
+`docs/evaluation.md`, "The environment-confound theory is now CONFIRMED"). Zip password
+scheme (from the site's about page): `infected_YYYYMMDD` (the post's date).
+
+| local name | source | pcap size | TLS sessions | notes |
+|---|---|---|---|---|
+| `lumma-2025-08-15` | malware-traffic-analysis.net, 2025-08-15 | ~23 MB | 10 (all TLS 1.3) | Lumma Stealer + SectopRAT/Arechclient2; C2 to `vishneviyjazz.ru` + `desk-app-now.com`; JA4 `t13d201200_2b729b4bf6f3_e24568c0d440` |
+
+```bash
+curl -o data/pcaps/lumma-2025-08-15.pcap.zip \
+  https://www.malware-traffic-analysis.net/2025/08/15/2025-08-15-Lumma-Stealer-infection-with-Sectop-RAT.pcap.zip
+python3 -c "import zipfile; zipfile.ZipFile('data/pcaps/lumma-2025-08-15.pcap.zip').extractall('data/pcaps', pwd=b'infected_20250815')"
+bash scripts/run_zeek.sh data/pcaps/lumma-2025-08-15.pcap data/zeek_logs/lumma-2025-08-15
+```
+
 ## Benign — live, self-captured (real, not downloaded)
 
 `scripts/capture_live_benign.sh` implements the §8 recipe directly: it scripts real HTTPS
