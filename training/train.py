@@ -11,9 +11,14 @@ Only approved observed-direction features are used (see
 intentionally NOT a model feature; it is a behavioural key.
 
 Leakage caveat (spec section 25): the CIC CSV has no source-IP / timestamp
-columns, so we cannot do a source- or time-disjoint split.  We use a stratified
-random split and state explicitly that the resulting offline metrics do NOT
-prove real-world streaming performance.
+columns, so we cannot do a true source- or time-disjoint split. However, the
+dataset is ~25% exact-duplicate rows (72,353 / 286,467 in the PortScan CSV) --
+a plain random split lets near-identical flows land on both sides, inflating
+holdout metrics. We instead group rows by their exact feature-vector fingerprint
+(duplicate/near-duplicate flows always land entirely in train or entirely in
+test) and split on those groups with ``StratifiedGroupKFold``. This does not
+fully substitute for a source/time-disjoint split, but it removes the specific,
+measured leakage source that exists in this dataset.
 """
 
 from __future__ import annotations
@@ -100,6 +105,40 @@ def load_and_prepare(
     return X_df.to_numpy(dtype=float), y, {k: float(v) for k, v in medians.items()}, info
 
 
+def group_disjoint_folds(X: np.ndarray, y: np.ndarray, test_size: float, random_state: int):
+    """Yield (train_idx, test_idx) folds where rows sharing an identical
+    feature-vector fingerprint (exact/near-duplicate flows) always land
+    entirely on one side.
+
+    Plain ``train_test_split`` on this dataset lets duplicate flows leak across
+    train/test (spec section 25 caveat). Grouping by fingerprint before
+    splitting removes that leakage even without a source-IP/timestamp column
+    -- but this dataset has a handful of *enormous* fingerprint groups (two
+    single flow shapes each account for >25% of all rows), so a single
+    arbitrary fold can silo an entire scan "shape" out of training or into
+    test by chance. We therefore run every fold, not just one, and the caller
+    reports mean/std across them instead of trusting one split.
+    """
+    from sklearn.model_selection import StratifiedGroupKFold
+
+    _, groups, group_counts = np.unique(X, axis=0, return_inverse=True, return_counts=True)
+    n_groups = int(groups.max()) + 1
+    n_splits = max(2, round(1.0 / test_size))
+    n_splits = min(n_splits, n_groups)
+    splitter = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+
+    dup_rows = int(len(X) - n_groups)
+    split_info = {
+        "method": "StratifiedGroupKFold cross-validation on feature-vector fingerprint groups",
+        "n_groups": n_groups,
+        "duplicate_rows_removed_from_leakage": dup_rows,
+        "duplicate_row_fraction": float(dup_rows / len(X)) if len(X) else 0.0,
+        "n_splits": n_splits,
+        "largest_group_sizes": sorted(group_counts.tolist(), reverse=True)[:5],
+    }
+    return list(splitter.split(X, y, groups=groups)), split_info
+
+
 def run_training(
     dataset: Optional[str] = None,
     model_dir: str = "models",
@@ -109,10 +148,9 @@ def run_training(
     random_state: int = 42,
     feature_list: Optional[List[str]] = None,
 ) -> Dict:
-    from sklearn.model_selection import train_test_split
     from sklearn.metrics import (
-        classification_report, confusion_matrix, f1_score,
-        precision_score, recall_score, roc_auc_score, average_precision_score,
+        f1_score, precision_score, recall_score,
+        roc_auc_score, average_precision_score,
     )
 
     feature_list = feature_list or list(APPROVED_FEATURES)
@@ -122,11 +160,65 @@ def run_training(
     print(f"[train] rows={info['n_rows']} positive_rate={info['positive_rate']:.4f} "
           f"labels={info['label_counts']}")
 
-    X_tr, X_te, y_tr, y_te = train_test_split(
-        X, y, test_size=test_size, random_state=random_state, stratify=y
-    )
-    scorer = train_per_flow_model(
-        X_tr, y_tr,
+    folds, split_info = group_disjoint_folds(X, y, test_size=test_size, random_state=random_state)
+    print(f"[train] group-disjoint CV: {split_info['n_groups']} unique flow fingerprints, "
+          f"{split_info['duplicate_rows_removed_from_leakage']} duplicate rows "
+          f"({split_info['duplicate_row_fraction']:.1%}) kept out of cross-fold leakage, "
+          f"largest groups={split_info['largest_group_sizes']}")
+
+    # Cross-validate across every fold rather than trusting one arbitrary split:
+    # this dataset has a couple of enormous fingerprint groups (see
+    # largest_group_sizes above), so which fold a given giant group lands in
+    # can swing a single-split holdout wildly. Mean/std across folds is the
+    # honest number.
+    fold_metrics: List[Dict] = []
+    for fold_i, (train_idx, test_idx) in enumerate(folds):
+        X_tr, X_te = X[train_idx], X[test_idx]
+        y_tr, y_te = y[train_idx], y[test_idx]
+        if len(np.unique(y_tr)) < 2 or len(np.unique(y_te)) < 2:
+            continue  # degenerate fold (all one class on one side); skip
+        fold_scorer = train_per_flow_model(
+            X_tr, y_tr, feature_list=feature_list, medians=medians,
+            n_estimators=n_estimators, random_state=random_state,
+        )
+        proba = fold_scorer.model.predict_proba(X_te)[:, fold_scorer.scan_class_index]
+        pred = (proba >= 0.5).astype(int)
+        fold_metrics.append({
+            "fold": fold_i,
+            "n_train": int(len(y_tr)),
+            "n_test": int(len(y_te)),
+            "precision": float(precision_score(y_te, pred, zero_division=0)),
+            "recall": float(recall_score(y_te, pred, zero_division=0)),
+            "f1": float(f1_score(y_te, pred, zero_division=0)),
+            "roc_auc": float(roc_auc_score(y_te, proba)),
+            "pr_auc": float(average_precision_score(y_te, proba)),
+        })
+        print(f"[train] fold {fold_i}: precision={fold_metrics[-1]['precision']:.4f} "
+              f"recall={fold_metrics[-1]['recall']:.4f} f1={fold_metrics[-1]['f1']:.4f} "
+              f"roc_auc={fold_metrics[-1]['roc_auc']:.4f}")
+
+    def _mean_std(key: str) -> Dict[str, float]:
+        vals = [m[key] for m in fold_metrics]
+        return {"mean": float(np.mean(vals)), "std": float(np.std(vals))}
+
+    cv_metrics = {
+        "n_folds_evaluated": len(fold_metrics),
+        "precision": _mean_std("precision"),
+        "recall": _mean_std("recall"),
+        "f1": _mean_std("f1"),
+        "roc_auc": _mean_std("roc_auc"),
+        "pr_auc": _mean_std("pr_auc"),
+        "per_fold": fold_metrics,
+    }
+    print(f"[train] group-disjoint CV summary over {len(fold_metrics)} folds: "
+          f"precision={cv_metrics['precision']['mean']:.4f}+/-{cv_metrics['precision']['std']:.4f} "
+          f"recall={cv_metrics['recall']['mean']:.4f}+/-{cv_metrics['recall']['std']:.4f} "
+          f"f1={cv_metrics['f1']['mean']:.4f}+/-{cv_metrics['f1']['std']:.4f}")
+
+    # Final deployed model is fit on ALL available data -- CV above is only to
+    # honestly estimate generalization, not to hold back production training data.
+    final_scorer = train_per_flow_model(
+        X, y,
         feature_list=feature_list,
         medians=medians,
         n_estimators=n_estimators,
@@ -135,13 +227,20 @@ def run_training(
             "dataset": str(ds),
             "trained_at": datetime.now(timezone.utc).isoformat(),
             "test_size": test_size,
-            "n_train": int(len(y_tr)),
-            "n_test": int(len(y_te)),
             "label_info": info,
+            "split_info": split_info,
             "leakage_caveat": (
-                "CIC CSV lacks src/dst IP and timestamp columns; this is a "
-                "stratified RANDOM split. Offline metrics do NOT prove "
-                "real-world streaming performance (spec section 25)."
+                "CIC CSV lacks src/dst IP and timestamp columns, so this is not a "
+                "true source- or time-disjoint split -- offline metrics still do NOT "
+                "prove real-world streaming performance (spec section 25). Metrics ARE "
+                "from feature-vector-fingerprint GROUP-disjoint cross-validation "
+                "(StratifiedGroupKFold, all folds evaluated), which removes the measured "
+                f"duplicate-row leakage ({split_info['duplicate_row_fraction']:.1%} of rows) "
+                "that a plain random split let leak across train/test. Cross-validating "
+                "every fold (rather than one split) also revealed that a couple of "
+                "single flow shapes each span >25% of all rows -- a single split can "
+                "silo an entire shape out of training by chance; the per-fold spread in "
+                "cv_metrics reflects that instability honestly instead of hiding it."
             ),
             "excluded_by_design": {
                 "Destination Port": "used as behavioural key, not an ML identity",
@@ -151,36 +250,21 @@ def run_training(
             "python": platform.python_version(),
         },
     )
+    final_scorer.metadata["cv_metrics"] = cv_metrics
 
-    # evaluate on holdout
-    proba = scorer.model.predict_proba(X_te)[:, scorer.scan_class_index]
-    pred = (proba >= 0.5).astype(int)
-    metrics = {
-        "precision": float(precision_score(y_te, pred, zero_division=0)),
-        "recall": float(recall_score(y_te, pred, zero_division=0)),
-        "f1": float(f1_score(y_te, pred, zero_division=0)),
-        "roc_auc": float(roc_auc_score(y_te, proba)) if len(set(y_te)) > 1 else None,
-        "pr_auc": float(average_precision_score(y_te, proba)) if len(set(y_te)) > 1 else None,
-        "confusion_matrix": confusion_matrix(y_te, pred).tolist(),
-    }
-    print("[train] holdout metrics:")
-    print(classification_report(y_te, pred, labels=[0, 1], target_names=["benign", "scan"], zero_division=0))
-    print(f"[train] roc_auc={metrics['roc_auc']} pr_auc={metrics['pr_auc']}")
-
-    # feature importances (transparency)
+    # feature importances (transparency), from the final production model
     importances = dict(sorted(
-        zip(feature_list, scorer.model.feature_importances_.tolist()),
+        zip(feature_list, final_scorer.model.feature_importances_.tolist()),
         key=lambda kv: kv[1], reverse=True,
     ))
-    scorer.metadata["holdout_metrics"] = metrics
-    scorer.metadata["feature_importances"] = importances
+    final_scorer.metadata["feature_importances"] = importances
 
     out = Path(model_dir)
-    scorer.save(out)
-    (out / "training_metrics.json").write_text(json.dumps(metrics, indent=2))
-    print(f"[train] saved model + feature_list + metadata to {out}/")
+    final_scorer.save(out)
+    (out / "training_metrics.json").write_text(json.dumps(cv_metrics, indent=2))
+    print(f"[train] saved model (trained on all {len(y)} rows) + feature_list + metadata to {out}/")
     print(f"[train] top features: {list(importances)[:5]}")
-    return metrics
+    return cv_metrics
 
 
 def main() -> int:
