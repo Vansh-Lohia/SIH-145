@@ -25,15 +25,34 @@ def split_by_capture_file(
 ) -> tuple[list[Any], list[Any]]:
     """Random split, but NEVER split flows from one pcap across train/test (rule 1).
 
-    Whole capture files go to one side or the other.
+    Whole capture files go to one side or the other. Pcaps are accumulated into the test
+    side by SESSION COUNT, not by pcap count: with a few small pcaps and one large one
+    (e.g. a 2-session fixture alongside a 2,000-session real capture), picking "1 of 4
+    pcaps" for test can trivially land on the tiny one, producing a test set that's
+    technically non-empty but statistically meaningless. Accumulating by session weight
+    until test_fraction of all sessions is reached (rounding up to whichever pcap crosses
+    the threshold) avoids that while still keeping every pcap wholly on one side.
     """
     import random
 
-    pcaps = sorted({_get(r, "pcap") for r in records})
+    counts: dict[str, int] = {}
+    for r in records:
+        counts[_get(r, "pcap")] = counts.get(_get(r, "pcap"), 0) + 1
+    pcaps = sorted(counts)
     rng = random.Random(seed)
     rng.shuffle(pcaps)
-    n_test = max(1, int(len(pcaps) * test_fraction))
-    test_pcaps = set(pcaps[:n_test])
+
+    target = len(records) * test_fraction
+    test_pcaps: set[str] = set()
+    accumulated = 0
+    for p in pcaps:
+        if accumulated >= target or len(test_pcaps) >= len(pcaps) - 1:
+            break
+        test_pcaps.add(p)
+        accumulated += counts[p]
+    if not test_pcaps and pcaps:
+        test_pcaps.add(pcaps[0])
+
     train = [r for r in records if _get(r, "pcap") not in test_pcaps]
     test = [r for r in records if _get(r, "pcap") in test_pcaps]
     return train, test

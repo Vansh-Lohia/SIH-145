@@ -66,6 +66,25 @@ def test_lofo_never_trains_with_zero_benign():
         assert n_benign_train > 0, f"held={held}: train has zero benign examples"
 
 
+def test_split_by_capture_file_test_set_is_not_dominated_by_a_tiny_pcap():
+    """Regression test: with pcaps of very unequal size (one 2-session fixture alongside
+    much larger real captures), picking test pcaps by COUNT rather than session WEIGHT can
+    land the whole test set on the tiny one -- non-empty, but statistically meaningless.
+    Found while computing precision/recall on real CTU data: every leave-one-family-out
+    fold's benign test set turned out to be the same 2-session fixture pcap."""
+    bundles = [featurize(s) for s in generate_dataset(n_benign=400, n_per_family=1, seed=12)]
+    # simulate: one tiny 2-session pcap plus the rest spread across several larger pcaps
+    tiny = [b for b in bundles if b.label == "benign"][:2]
+    for b in tiny:
+        b.pcap = "tiny_fixture.pcap"
+    for i, b in enumerate(b for b in bundles if b.label == "benign" and b not in tiny):
+        b.pcap = f"large_capture_{i // 100}.pcap"
+
+    _, test = protocol.split_by_capture_file(bundles, test_fraction=0.3, seed=13)
+    assert len(test) > 10, (
+        f"test split has only {len(test)} sessions -- likely landed on the tiny pcap alone")
+
+
 def test_no_flow_from_same_pcap_crosses_split():
     bundles = [featurize(s) for s in generate_dataset(n_benign=300, n_per_family=80, seed=6)]
     tr, te = protocol.split_by_capture_file(bundles, test_fraction=0.3, seed=7)

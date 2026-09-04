@@ -228,6 +228,52 @@ through `tcpreplay` onto the *same* live interface as the benign capture, which 
 installed (`tcpreplay` needs a package install, a separate ask from the `tcpdump` setcap
 already granted) — noted as the concrete remaining step, not a blocker on further work.
 
+### Full metrics (accuracy, precision, recall, F1, AUC) — and a second split bug found while computing them
+
+Asked to report accuracy/precision/recall/F1 directly, computing them surfaced a second real
+bug: `split_by_capture_file` picked pcaps for the test side **by pcap count, not by session
+weight**. With one 2-session fixture pcap alongside three much larger real captures, "1 of 4
+pcaps" for test could trivially land on the tiny one — every leave-one-family-out fold's
+benign test set turned out to be the *same 2 sessions*, regardless of the ~4,350 other real
+benign sessions sitting in train. Metrics computed from that were not meaningful (accuracy at
+a naive 0.5 threshold came out as 0.0003 for one fold purely because LightGBM's raw
+probability scale is tiny and uncalibrated — nothing to do with model quality). Fixed by
+accumulating pcaps into the test side until they cover `test_fraction` of total **sessions**,
+not pcaps; regression test added (26 tests total pass).
+
+With that fixed, all four benign pcaps are properly represented and each fold's benign test
+set is a real ~1,416-session sample:
+
+**Real data (CTU), leave-one-family-out, at the TPR@0.1%FPR operating threshold:**
+
+| held-out | n_malicious | n_benign | accuracy | precision | recall | F1 | AUC |
+|---|---|---|---|---|---|---|---|
+| dridex | 5,735 | 1,416 | 0.9997 | 0.9997 | 1.0000 | 0.9998 | 1.0000 |
+| emotet | 14,060 | 1,416 | 0.9999 | 0.9999 | 1.0000 | 0.9999 | 1.0000 |
+| trickbot | 2,570 | 1,416 | 0.9997 | 0.9996 | 1.0000 | 0.9998 | 1.0000 |
+
+These are now statistically sound (large samples both sides) but **still the confounded
+result** described above — near-perfect across three unrelated families is the environment
+artifact, not validated real-world performance.
+
+**Synthetic prototype data, for contrast** (deliberately built so malware overlaps benign in
+shape/timing and some families mimic a browser's JA4 — see the synthetic-generator section
+above):
+
+| split | n_malicious | n_benign | accuracy | precision | recall | F1 | AUC |
+|---|---|---|---|---|---|---|---|
+| random-by-capture | 220 | 480 | 0.9543 | 0.9947 | 0.8591 | 0.9220 | 0.9567 |
+| LOFO: cobaltstrike | 200 | 450 | 0.6908 | 0.0000 | 0.0000 | 0.0000 | 0.5788 |
+| LOFO: quicc2 | 200 | 450 | 0.6908 | 0.0000 | 0.0000 | 0.0000 | 0.5148 |
+| LOFO: trickbot | 200 | 450 | 0.9569 | 0.9943 | 0.8650 | 0.9251 | 0.9990 |
+| LOFO: zeus | 200 | 450 | 0.9985 | 0.9950 | 1.0000 | 0.9975 | 1.0000 |
+
+This is what an *honest*, appropriately-hard result looks like: two browser-mimicking
+families (cobaltstrike, quicc2) genuinely fail when held out (AUC ≈ 0.5, i.e. no better than
+chance), because the generator was deliberately built so JA4 alone can't catch them. The real
+data doesn't yet show this kind of family-dependent variation — another sign its near-perfect
+numbers reflect the environment confound rather than genuine per-family difficulty.
+
 ### Next steps toward a trustworthy real number
 
 1. Install `tcpreplay` and replay a malware pcap onto the same live interface as a benign
