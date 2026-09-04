@@ -101,14 +101,7 @@ def cmd_train(args: argparse.Namespace) -> int:
 def cmd_evaluate(args: argparse.Namespace) -> int:
     from evaluation.evaluate_model import run_evaluation
 
-    run_evaluation(
-        dataset=args.dataset,
-        model_dir=args.model_dir,
-        test_size=args.test_size,
-        max_rows=args.max_rows,
-        random_state=args.random_state,
-        out=args.out,
-    )
+    run_evaluation(model_dir=args.model_dir, out=args.out)
     return 0
 
 
@@ -153,12 +146,8 @@ def build_parser() -> argparse.ArgumentParser:
     ptr.add_argument("--random-state", type=int, default=42)
     ptr.set_defaults(func=cmd_train)
 
-    pev = sub.add_parser("evaluate", help="offline supervised metrics")
-    pev.add_argument("--dataset", default=None)
+    pev = sub.add_parser("evaluate", help="report the model's saved cross-validated metrics")
     pev.add_argument("--model-dir", **common_model)
-    pev.add_argument("--test-size", type=float, default=0.3)
-    pev.add_argument("--max-rows", type=int, default=None)
-    pev.add_argument("--random-state", type=int, default=42)
     pev.add_argument("--out", default=None, help="write metrics JSON here")
     pev.set_defaults(func=cmd_evaluate)
 

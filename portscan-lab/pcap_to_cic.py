@@ -31,32 +31,15 @@ from __future__ import annotations
 import argparse
 import csv
 import math
+import sys
 from collections import defaultdict
+from pathlib import Path
 from typing import Dict, List, Tuple
 
 from scapy.all import PcapReader, IP, IPv6, TCP, UDP
 
-# Exact order/names the model was trained on (keep in sync with
-# src/recon_detector/features.py::APPROVED_FEATURES).
-APPROVED_FEATURES: List[str] = [
-    "Total Fwd Packets",
-    "Total Length of Fwd Packets",
-    "Fwd Packet Length Max",
-    "Fwd Packet Length Min",
-    "Fwd Packet Length Mean",
-    "Fwd Packet Length Std",
-    "Fwd IAT Total",
-    "Fwd IAT Mean",
-    "Fwd IAT Std",
-    "Fwd IAT Max",
-    "Fwd IAT Min",
-    "Fwd PSH Flags",
-    "Fwd URG Flags",
-    "Fwd Header Length",
-    "Init_Win_bytes_forward",
-    "act_data_pkt_fwd",
-    "min_seg_size_forward",
-]
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+from recon_detector.features import APPROVED_FEATURES  # noqa: E402
 IDENTITY_COLS = ["timestamp", "src_ip", "dst_ip", "dst_port", "protocol"]
 
 FlowKey = Tuple[str, str, int, int, str]

@@ -204,13 +204,20 @@ python training/train.py --dataset /path/to/Friday-...-PortScan.pcap_ISCX.csv
 
 Separated deliberately (spec §25):
 
-- **A. Offline supervised benchmark** (`evaluation/evaluate_model.py`) — on the
-  CIC holdout the model scores precision **0.9995**, recall **0.9999**, F1
-  **0.9997**, ROC-AUC **0.9998**, PR-AUC **0.9997** (confusion matrix
-  `[[38238, 24], [4, 47675]]`). **These numbers do NOT equal real-world
-  streaming performance** — the split is a stratified *random* split on a
-  dataset without source/time keys, so correlated flows can appear on both
-  sides.
+- **A. Offline supervised benchmark** (`evaluation/evaluate_model.py`) — reports
+  the group-disjoint cross-validated metrics saved by `training/train.py`
+  (`training/train.py` groups rows by exact feature-vector fingerprint before
+  splitting, so duplicate/near-duplicate flows can't leak across train/test,
+  then cross-validates across every fold). The previously reported precision
+  **0.9995** / recall **0.9999** came from a stratified *random* split and
+  turned out to be mostly duplicate-flow memorization — ~79% of rows in the
+  CIC PortScan CSV are exact duplicates on the 17 approved features. Once that
+  leakage is removed, true cross-fold recall is far lower (see
+  `models/training_metrics.json` for current numbers) because a couple of
+  single flow shapes each span >25% of the dataset and behave as near-disjoint
+  populations. **These numbers still do NOT equal real-world streaming
+  performance** — the dataset has no source/time keys, so this is a
+  group-disjoint split, not a true source- or time-disjoint one.
 - **B / C. Source-level & synthetic strict-one-way evaluation**
   (`evaluation/synthetic_stream_test.py`) — scenarios A–L below.
 - **D. Throughput benchmark** (`evaluation/benchmark.py`).
@@ -384,7 +391,7 @@ models/               saved artifact (per_flow_model.joblib, feature_list.json, 
 python -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt          # or: pip install -e .
 python training/train.py --dataset /path/to/Friday-...-PortScan.pcap_ISCX.csv
-python evaluation/evaluate_model.py --dataset /path/to/...csv --out models/offline_eval.json
+python evaluation/evaluate_model.py --model-dir models --out models/offline_eval.json
 python evaluation/synthetic_stream_test.py --model-dir models
 python evaluation/benchmark.py --model-dir models
 pytest

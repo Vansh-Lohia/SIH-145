@@ -19,28 +19,12 @@ import argparse
 import csv
 import math
 import random
+import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-APPROVED_FEATURES: List[str] = [
-    "Total Fwd Packets",
-    "Total Length of Fwd Packets",
-    "Fwd Packet Length Max",
-    "Fwd Packet Length Min",
-    "Fwd Packet Length Mean",
-    "Fwd Packet Length Std",
-    "Fwd IAT Total",
-    "Fwd IAT Mean",
-    "Fwd IAT Std",
-    "Fwd IAT Max",
-    "Fwd IAT Min",
-    "Fwd PSH Flags",
-    "Fwd URG Flags",
-    "Fwd Header Length",
-    "Init_Win_bytes_forward",
-    "act_data_pkt_fwd",
-    "min_seg_size_forward",
-]
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+from recon_detector.features import APPROVED_FEATURES  # noqa: E402
 
 IDENTITY_COLS = ["timestamp", "src_ip", "dst_ip", "dst_port", "protocol"]
 COMMON_PORTS = [80, 443, 22, 53, 25, 110, 143, 993, 995, 3306, 5432, 8080, 8443]

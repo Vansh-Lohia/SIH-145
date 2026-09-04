@@ -1,91 +1,55 @@
 """Offline supervised evaluation of the per-flow model (spec sections 23, 25).
 
-Reports precision / recall / F1 / confusion matrix / ROC-AUC / PR-AUC on a
-stratified holdout split, and prints the leakage caveat prominently.
+Reports the group-disjoint cross-validated precision / recall / F1 / ROC-AUC /
+PR-AUC that ``training/train.py`` computed and saved alongside the model.
+
+This does NOT re-derive a holdout split itself: the saved model is trained on
+*all* available rows (see ``training/train.py``), so there is no data left
+that the model hasn't seen -- re-evaluating against any fresh split of the
+same dataset would score the model on its own training data. The honest
+generalization estimate is the cross-validated ``cv_metrics`` produced during
+training, before the final fit; this script just surfaces it.
 """
 
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 from typing import Optional
 
-import numpy as np
 
-_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_ROOT / "src"))
-sys.path.insert(0, str(_ROOT))  # so `training.train` is importable
+def run_evaluation(model_dir: str = "models", out: Optional[str] = None) -> dict:
+    meta_path = Path(model_dir) / "metadata.json"
+    metadata = json.loads(meta_path.read_text())
+    cv_metrics = metadata.get("cv_metrics")
+    if cv_metrics is None:
+        raise KeyError(
+            f"{meta_path} has no 'cv_metrics' -- this model was trained before "
+            "the group-disjoint cross-validation was added; retrain with "
+            "training/train.py to get an evaluable model."
+        )
 
-from recon_detector.model import MLFlowScorer  # noqa: E402
-
-
-def run_evaluation(
-    dataset: Optional[str] = None,
-    model_dir: str = "models",
-    test_size: float = 0.3,
-    max_rows: Optional[int] = None,
-    random_state: int = 42,
-    out: Optional[str] = None,
-) -> dict:
-    from sklearn.model_selection import train_test_split
-    from sklearn.metrics import (
-        classification_report, confusion_matrix, f1_score,
-        precision_score, recall_score, roc_auc_score, average_precision_score,
-    )
-    # reuse the same preparation as training for consistency
-    from training.train import load_and_prepare, locate_dataset
-
-    scorer = MLFlowScorer.load(model_dir)
-    ds = locate_dataset(dataset)
-    X, y, _medians, info = load_and_prepare(ds, scorer.feature_list, max_rows=max_rows)
-
-    # Reproduce the same split as training so we score the true holdout.
-    _, X_te, _, y_te = train_test_split(
-        X, y, test_size=test_size, random_state=random_state, stratify=y
-    )
-    proba = scorer.model.predict_proba(X_te)[:, scorer.scan_class_index]
-    pred = (proba >= 0.5).astype(int)
-
-    metrics = {
-        "n_test": int(len(y_te)),
-        "class_distribution": {"benign": int((y_te == 0).sum()),
-                               "scan": int((y_te == 1).sum())},
-        "precision": float(precision_score(y_te, pred, zero_division=0)),
-        "recall": float(recall_score(y_te, pred, zero_division=0)),
-        "f1": float(f1_score(y_te, pred, zero_division=0)),
-        "roc_auc": float(roc_auc_score(y_te, proba)) if len(set(y_te)) > 1 else None,
-        "pr_auc": float(average_precision_score(y_te, proba)) if len(set(y_te)) > 1 else None,
-        "confusion_matrix": confusion_matrix(y_te, pred).tolist(),
-        "leakage_caveat": (
-            "Stratified RANDOM split on a dataset without src/time keys; these "
-            "numbers do NOT equal real-world streaming performance."
-        ),
-    }
-    print("=== Offline supervised benchmark (per-flow model) ===")
-    print(classification_report(y_te, pred, labels=[0, 1], target_names=["benign", "scan"], zero_division=0))
-    print(f"roc_auc={metrics['roc_auc']} pr_auc={metrics['pr_auc']}")
-    print(f"confusion_matrix (rows=true benign/scan): {metrics['confusion_matrix']}")
-    print("NOTE:", metrics["leakage_caveat"])
+    print("=== Group-disjoint cross-validated benchmark (per-flow model) ===")
+    print(f"folds evaluated: {cv_metrics['n_folds_evaluated']}")
+    for key in ("precision", "recall", "f1", "roc_auc", "pr_auc"):
+        m = cv_metrics[key]
+        print(f"{key:10s} mean={m['mean']:.4f} std={m['std']:.4f}")
+    print("NOTE:", metadata.get("leakage_caveat", ""))
 
     if out:
-        Path(out).write_text(json.dumps(metrics, indent=2))
+        Path(out).write_text(json.dumps(cv_metrics, indent=2))
         print(f"wrote {out}")
-    return metrics
+    return cv_metrics
 
 
 def main() -> int:
     import argparse
 
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dataset", default=None)
     ap.add_argument("--model-dir", default="models")
-    ap.add_argument("--test-size", type=float, default=0.3)
-    ap.add_argument("--max-rows", type=int, default=None)
-    ap.add_argument("--random-state", type=int, default=42)
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
-    run_evaluation(a.dataset, a.model_dir, a.test_size, a.max_rows, a.random_state, a.out)
+    run_evaluation(a.model_dir, a.out)
     return 0
 
 

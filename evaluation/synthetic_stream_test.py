@@ -36,8 +36,9 @@ def _make_detector(model_dir: Optional[str]) -> ReconDetector:
     if model_dir and (Path(model_dir) / "per_flow_model.joblib").exists():
         try:
             return ReconDetector.from_model_dir(model_dir, config=config)
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as exc:  # noqa: BLE001
+            print(f"[warn] could not load model from {model_dir}: {exc}; "
+                  "falling back to heuristic scorer", file=sys.stderr)
     return ReconDetector(config=config)
 
 
