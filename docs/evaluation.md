@@ -79,3 +79,63 @@ self-generated benign traffic on the same network/period (`CLAUDE.md` §8), hold
 dataset completely unseen until the final week (§7 rule 7). The value of the prototype is
 that the *protocol* — split by capture, leave-one-family-out, TPR@0.1%FPR, alerts/hour,
 feature sanity check — is already in place and enforced by tests.
+
+## First real result (CTU captures)
+
+`python scripts/build_dataset.py --scan --eval` on real captures — Dridex (CTU-251-1),
+Trickbot (CTU-327-2), Emotet (CTU-264-1), plus benign traffic from CTU-Normal-26:
+
+```
+LOFO:dridex     TPR@0.1%FPR = 0.0000
+LOFO:emotet     TPR@0.1%FPR = 0.3050
+LOFO:trickbot   TPR@0.1%FPR = 0.0000
+mean (headline)             = 0.1017
+```
+
+**This is a genuinely bad number, and that is the correct, expected result at this stage.**
+Two things explain it, both already flagged by the tooling itself:
+
+1. **Environment confound (CLAUDE.md §7's central warning).** All malicious sessions come
+   from `ctu-sandbox` captures; all benign sessions come from `ctu-normal`/`lab`. The model
+   can partly learn "which capture environment is this?" rather than "malicious vs benign" —
+   `build_dataset.py --eval` now detects and prints this warning automatically whenever the
+   two label classes don't share an environment.
+2. **Real families barely resemble each other.** Dridex is TLS 1.2, no SNI, one C2 IP pair.
+   Trickbot is TLS 1.0, its own JA4. Emotet's ClientHellos were too minimal for FoxIO's JA4
+   package to compute a hash at all (`ja4` field literally `"(empty)"` — see below). A
+   detector trained on Dridex+Trickbot has essentially no shared signal to transfer to
+   Emotet, and vice versa. This is leave-one-family-out doing exactly its job: refusing to
+   let a detector's score on familiar malware stand in for its score on the next one.
+
+The random-split comparison point is **not reportable yet**: with only 5 total pcaps (one
+per malware family, two benign), a 30% file-level split is coarse enough to produce a
+degenerate test set (e.g. 0 malicious / 2 benign sessions) — `build_dataset.py` detects this
+and skips the row rather than printing a misleading 0.0000. More captures per class are
+needed before random-split-vs-LOFO is a fair comparison on real data.
+
+### Bug found in real ingestion: FoxIO's `"(empty)"` JA4 sentinel
+
+Zeek's own unset-scalar marker is `-`, already handled. FoxIO's JA4 package additionally
+emits the literal string `"(empty)"` in the `ja4` field when it cannot compute a hash (seen
+on 100% of the Emotet capture's 14,060 sessions — an unusually minimal ClientHello). Before
+the fix, `ingest/zeek_reader.py` treated `"(empty)"` as a real, universally-shared
+fingerprint, which would have silently corrupted the JA4 target encoding across the entire
+Emotet family. Fixed by treating `"(empty)"` (alongside `-`) as no-value in
+`_clean_str()`, so those sessions correctly report `handshake` unavailable instead.
+
+### Feature-family availability on real data
+
+`shape=100%, handshake=41%, certificate=29%` — shape is always available as designed;
+handshake drops because of the Emotet `(empty)` JA4 issue above; certificate is TLS-1.2-only
+by design and most of the corpus (by session count) is Emotet/Dridex over older TLS or with
+gaps in the x509 join. This is exactly the "losing a family should degrade, not break, the
+detector" property the architecture was built for (`CLAUDE.md` §3) — and it is now visible
+on real data, not just asserted.
+
+### Next steps toward a trustworthy real number
+
+1. Add more malware families (more pcaps) so leave-one-family-out isn't estimated from n=3.
+2. Generate benign traffic **inside the same environment** as a malware replay — closing the
+   environment confound is higher priority than adding more malware families.
+3. Investigate why FoxIO couldn't compute JA4 for the Emotet capture — is it truncation in
+   the CTU pcap, or a genuinely minimal ClientHello worth featurizing on its own?

@@ -12,6 +12,7 @@ from encdetect.ingest.zeek_reader import sessions_from_log_dir  # noqa: E402
 from encdetect.features.session import featurize  # noqa: E402
 
 FIX = Path(__file__).resolve().parent / "fixtures" / "zeek" / "test"
+FIX_EMOTET = Path(__file__).resolve().parent / "fixtures" / "zeek" / "emotet_like"
 
 
 def test_reads_real_ssl_log_sessions():
@@ -53,3 +54,20 @@ def test_featurize_real_session_end_to_end():
     # real shape features are populated (not silent zeros)
     assert b.tabular["pkt_count"] >= 20
     assert b.tabular["total_bytes"] > 0
+
+
+def test_foxio_empty_ja4_sentinel_treated_as_no_value():
+    """Regression test: FoxIO's JA4 package emits the literal string "(empty)" in ja4 when
+    it can't compute a hash (seen on 100% of a real Emotet capture, 14,060 sessions). Before
+    the fix this was carried through as if it were a real, universally-shared fingerprint,
+    which would corrupt JA4 target encoding across the whole family. It must be normalised
+    to "no value" like Zeek's own "-" unset marker, and handshake must report unavailable."""
+    sessions = sessions_from_log_dir(FIX_EMOTET)
+    assert len(sessions) == 1
+    s = sessions[0]
+    assert s.ja4_precomputed == ""            # NOT the literal string "(empty)"
+    assert s.ja4s == "t100100_c013_bcb145a8c2a7"   # a real ja4s is preserved verbatim
+
+    bundle = featurize(s)
+    assert bundle.ja4 == ""
+    assert bundle.availability["handshake"] is False

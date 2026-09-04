@@ -16,6 +16,8 @@ Source: <https://www.stratosphereips.org/datasets-malware> (mirror
 | local name | CTU capture | family | pcap size | TLS sessions | notes |
 |---|---|---|---|---|---|
 | `ctu-251-1-dridex` | CTU-Malware-Capture-Botnet-251-1 | Dridex | ~31 MB | 5,735 | pure TLS 1.2 C2, no SNI, JA4 `t12i210300_…`, to 2 C2 IPs |
+| `ctu-327-2-trickbot` | CTU-Malware-Capture-Botnet-327-2 | Trickbot | ~67 MB | 2,570 | TLS 1.0, single JA4 `t10i120200_…` |
+| `ctu-264-1-emotet` | CTU-Malware-Capture-Botnet-264-1 | Emotet | ~84 MB | 14,060 | TLS 1.0; FoxIO's JA4 package could not compute a hash (`ja4` field literally `(empty)`) — see `docs/evaluation.md` |
 
 To fetch and process (inside WSL, where Zeek lives):
 
@@ -23,7 +25,13 @@ To fetch and process (inside WSL, where Zeek lives):
 D=data/pcaps; mkdir -p $D
 curl -o $D/ctu-251-1-dridex.pcap \
   https://mcfp.felk.cvut.cz/publicDatasets/CTU-Malware-Capture-Botnet-251-1/2016-05-11_win4.pcap
-bash scripts/run_zeek.sh $D/ctu-251-1-dridex.pcap data/zeek_logs/ctu-251-1-dridex
+curl -o $D/ctu-327-2-trickbot.pcap \
+  https://mcfp.felk.cvut.cz/publicDatasets/CTU-Malware-Capture-Botnet-327-2/2018-03-27_win3.capture1.pcap
+curl -o $D/ctu-264-1-emotet.pcap \
+  https://mcfp.felk.cvut.cz/publicDatasets/CTU-Malware-Capture-Botnet-264-1/2017-06-24_win3.pcap
+for name in ctu-251-1-dridex ctu-327-2-trickbot ctu-264-1-emotet; do
+  bash scripts/run_zeek.sh $D/$name.pcap data/zeek_logs/$name
+done
 ```
 
 Other small TLS-bearing candidates found while scanning (pcap size / TLS sessions):
@@ -34,10 +42,25 @@ Other small TLS-bearing candidates found while scanning (pcap size / TLS session
 
 `CLAUDE.md` §8: benign traffic should be **generated on the same network and period** as the
 malware replay — scripted browsing over Tranco top sites — which is the main defence against
-the environment artifact. Until that harness exists, CTU-Normal captures can stand in, but
-mixing benign and malicious from different capture environments is exactly the risk the
-evaluation protocol (`CLAUDE.md` §7) guards against — so treat any such number with suspicion
-and keep the leave-one-family-out framing.
+the environment artifact. Until that harness exists, CTU-Normal captures stand in as a
+stopgap:
+
+| local name | CTU capture | pcap size | TLS sessions |
+|---|---|---|---|
+| `ctu-normal-26` | CTU-Normal-26 | ~112 MB | 1,414 |
+
+```bash
+curl -o data/pcaps/ctu-normal-26.pcap \
+  https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-26/2017-04-28_normal.pcap
+bash scripts/run_zeek.sh data/pcaps/ctu-normal-26.pcap data/zeek_logs/ctu-normal-26
+```
+
+Mixing benign and malicious from different capture environments (`ctu-normal` vs
+`ctu-sandbox`) is exactly the risk the evaluation protocol (`CLAUDE.md` §7) guards against —
+`scripts/build_dataset.py --eval` detects and warns about this automatically. **Current real
+results should be read as provisional** until benign traffic shares the malware's capture
+environment. See `docs/evaluation.md` for the first real leave-one-family-out result and
+what it does and doesn't tell us.
 
 ## Labels
 

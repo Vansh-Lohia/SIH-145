@@ -144,6 +144,25 @@ def _run_eval(bundles: list[FeatureBundle]) -> None:
     dur = max(1.0, len(bundles) / 1000.0)
     print("REAL-DATA evaluation (CLAUDE.md §7)")
     print("  " + metrics.ExperimentRow.HEADER)
+
+    # optimistic comparison point: random split BY CAPTURE FILE (rule 1 still respected).
+    # With few total pcaps (currently one per malware family) this split has coarse
+    # granularity and can degenerate (a test set with zero sessions of one class, making
+    # TPR/precision undefined rather than genuinely 0) — detect that rather than print a
+    # misleading number.
+    n_pcaps = len({b.pcap for b in bundles})
+    tr, te = protocol.split_by_capture_file(bundles, test_fraction=0.3, seed=7)
+    y_te = y(te)
+    rand_row = None
+    if n_pcaps < 8 or y_te.sum() == 0 or y_te.sum() == len(y_te):
+        print(f"  random-by-capture      SKIPPED — only {n_pcaps} pcaps total, split is "
+              f"degenerate (test set: {int(y_te.sum())} malicious / {len(y_te) - int(y_te.sum())} "
+              "benign). Add more captures per class for a meaningful comparison.")
+    else:
+        rand_score = LgbmBaseline().fit(tr).predict_proba(te)
+        rand_row = metrics.evaluate(y_te, rand_score, "random-by-capture", dur)
+        print("  " + rand_row.format_row())
+
     tprs = []
     for train, test, held in protocol.leave_one_family_out(bundles):
         m = LgbmBaseline().fit(train)
@@ -151,7 +170,22 @@ def _run_eval(bundles: list[FeatureBundle]) -> None:
         r = metrics.evaluate(y(test), s, f"LOFO:{held}", dur)
         tprs.append(r.tpr_at_0p1_fpr)
         print("  " + r.format_row())
-    print(f"\n  mean TPR@0.1%FPR (held-out-family) = {np.mean(tprs):.4f}  <- the headline")
+    lofo_mean = float(np.mean(tprs)) if tprs else 0.0
+    print(f"\n  mean TPR@0.1%FPR (held-out-family) = {lofo_mean:.4f}  <- the headline")
+    if rand_row is not None:
+        print(f"  random-split TPR@0.1%FPR            = {rand_row.tpr_at_0p1_fpr:.4f}  "
+              f"(optimistic; do not report this alone)")
+
+    envs = {b.environment for b in bundles}
+    if len(envs) > 1:
+        mal_envs = {b.environment for b in bundles if b.label == "malicious"}
+        ben_envs = {b.environment for b in bundles if b.label == "benign"}
+        if mal_envs.isdisjoint(ben_envs):
+            print(f"\n  CAUTION: malicious sessions are from {sorted(mal_envs)} and benign "
+                  f"from {sorted(ben_envs)} — different capture environments. A model can "
+                  "learn 'which environment is this?' instead of malicious-vs-benign "
+                  "(CLAUDE.md §7). Treat this result as provisional until benign traffic is "
+                  "captured in the same environment as the malware replay.")
 
 
 if __name__ == "__main__":

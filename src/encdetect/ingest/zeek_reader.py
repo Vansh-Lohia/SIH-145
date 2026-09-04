@@ -99,6 +99,17 @@ def _num(v: Any, default: float = 0.0) -> float:
         return default
 
 
+# Zeek's absent-value sentinels: "-" for an unset scalar (already mapped to None by
+# _read_tsv's #unset_field handling), and "(empty)" for an empty set/vector OR, as seen from
+# the FoxIO JA4 package, a hash it could not compute (e.g. a truncated/minimal ClientHello).
+# Both must be treated as "no value" — not as a literal fingerprint.
+_ZEEK_EMPTY = frozenset({"", "-", "(empty)", None})
+
+
+def _clean_str(v: Any) -> str:
+    return "" if v in _ZEEK_EMPTY else str(v)
+
+
 def _read_dir(log_dir: Path, name: str) -> list[dict[str, Any]]:
     """Read one Zeek log if present (JSON or TSV), else return []."""
     path = log_dir / name
@@ -208,8 +219,8 @@ def sessions_from_log_dir(log_dir: str | Path, *, label: str = "", family: str =
             client_hello=None,          # raw ClientHello lists aren't in ssl.log
             cert=cert,
             packets=_packets_from_splt(splt_by_uid.get(uid, []), s.get("id.orig_h")),
-            ja4_precomputed=str(s.get("ja4") or ""),
-            ja4s=str(s.get("ja4s") or ""),
+            ja4_precomputed=_clean_str(s.get("ja4")),
+            ja4s=_clean_str(s.get("ja4s")),
             tls_version_str=tls_ver,
             start_ts=start, end_ts=start + dur,
             label=label, family=family, environment=environment, pcap=pcap,
