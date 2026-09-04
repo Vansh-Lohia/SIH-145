@@ -1,0 +1,1 @@
+{"pcap": "ctu-251-1-dridex.pcap", "label": "malicious", "family": "dridex", "environment": "ctu-sandbox", "src_ip": "", "dst_ip": "", "start_ts": 0, "end_ts": 0}

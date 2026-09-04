@@ -1,0 +1,29 @@
+# Pin versions before real use. Audit every addition for network calls at import
+# and at first use (see CLAUDE.md §2.2). Vendor any data file a library would fetch.
+
+# Core numerics / tabular
+numpy
+pandas
+scikit-learn
+
+# Baseline model
+lightgbm
+
+# Explainability (alert schema `evidence` field)
+shap
+
+# Sequence model (1D-CNN). Torch chosen for CPU inference; pin at integration time.
+torch
+
+# Model persistence
+joblib
+
+# Streaming
+# (asyncio is stdlib)
+
+# Schema validation + dev/test
+jsonschema
+pytest
+ruff
+
+# NOTE: Zeek and tcpreplay are external system tools, not pip packages.

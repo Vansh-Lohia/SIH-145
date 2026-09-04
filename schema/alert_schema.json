@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://simplex.iitkgp/sih2026/schema/alert_schema.json",
+  "title": "Pipeline Alert",
+  "description": "Shared alert contract across all six detectors (CLAUDE.md §5). FROZEN. Do not change without updating every other module.",
+  "type": "object",
+  "required": [
+    "alert_id",
+    "timestamp",
+    "detector",
+    "flow_id",
+    "threat_class",
+    "mitre_technique",
+    "severity",
+    "confidence",
+    "window",
+    "evidence"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "alert_id": { "type": "string", "format": "uuid" },
+    "timestamp": { "type": "string", "format": "date-time", "description": "ISO8601" },
+    "detector": { "type": "string", "const": "encrypted_session_v1" },
+    "flow_id": {
+      "type": "object",
+      "required": ["src_ip", "src_port", "dst_ip", "dst_port", "proto"],
+      "additionalProperties": false,
+      "properties": {
+        "src_ip": { "type": "string" },
+        "src_port": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "dst_ip": { "type": "string" },
+        "dst_port": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "proto": { "type": "string", "enum": ["tcp", "udp"] }
+      }
+    },
+    "threat_class": { "type": "string", "const": "encrypted_malware" },
+    "mitre_technique": { "type": "string", "description": "e.g. T1071.001" },
+    "severity": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"],
+      "description": "Inherent impact of the threat class. NOT the model certainty."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Model certainty. Distinct from severity."
+    },
+    "window": {
+      "type": "object",
+      "required": ["start", "end"],
+      "additionalProperties": false,
+      "properties": {
+        "start": { "type": "string", "format": "date-time" },
+        "end": { "type": "string", "format": "date-time" }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "description": "Top SHAP feature contributions (CLAUDE.md §4 explainability).",
+      "items": {
+        "type": "object",
+        "required": ["feature", "value", "contribution"],
+        "additionalProperties": false,
+        "properties": {
+          "feature": { "type": "string" },
+          "value": {},
+          "contribution": { "type": "number" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,1 @@
+{"pcap": "test.pcap", "label": "benign", "family": "", "environment": "lab", "src_ip": "", "dst_ip": "", "start_ts": 0, "end_ts": 0}

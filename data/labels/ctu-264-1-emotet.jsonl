@@ -1,0 +1,1 @@
+{"pcap": "ctu-264-1-emotet.pcap", "label": "malicious", "family": "emotet", "environment": "ctu-sandbox", "src_ip": "", "dst_ip": "", "start_ts": 0, "end_ts": 0}
