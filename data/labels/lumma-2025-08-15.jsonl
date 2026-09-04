@@ -1,0 +1,1 @@
+{"pcap": "lumma-2025-08-15.pcap", "label": "malicious", "family": "lumma_stealer", "environment": "mta-net-2025", "src_ip": "", "dst_ip": "", "start_ts": 0, "end_ts": 0}

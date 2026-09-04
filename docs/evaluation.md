@@ -274,11 +274,56 @@ chance), because the generator was deliberately built so JA4 alone can't catch t
 data doesn't yet show this kind of family-dependent variation — another sign its near-perfect
 numbers reflect the environment confound rather than genuine per-family difficulty.
 
+### The environment-confound theory is now CONFIRMED, not just suspected
+
+Tested directly: does the current baseline (trained on all 26,715 real 2016-2018 CTU
+sessions) detect a **real, modern malware sample**? Downloaded a confirmed-malicious capture
+from malware-traffic-analysis.net — **Lumma Stealer, 2025-08-15, with SectopRAT/Arechclient2**
+— run through the identical Zeek+JA4+SPLT pipeline. 10 TLS sessions, all genuine C2 traffic
+(9 beaconing to `vishneviyjazz.ru`, 1 to a Cloudflare-fronted `desk-app-now.com`, one shared
+JA4 `t13d201200_2b729b4bf6f3_e24568c0d440`), **all TLS 1.3**.
+
+**Result: the model scored all 10 as benign**, with near-zero malicious probability
+(mean ≈ 4.7e-7 — not a borderline miss, a confident wrong answer). It missed 100% of a real,
+current malware family.
+
+The smoking gun — direct side-by-side, same era, opposite ground truth:
+
+```
+2025 Lumma Stealer malware (n=10, TLS 1.3):  mean score = 0.000000   (TRUE LABEL: malicious)
+2026 live-captured curl benign (n=10, TLS 1.3): mean score = 0.000000   (TRUE LABEL: benign)
+```
+
+The model cannot tell these apart. Both are TLS 1.3; both score identically near-zero. This
+is not a coincidence — the top features it actually relies on (`size_mean`, `iat_mean`,
+`iat_max`, `iat_std`, `duration_ms`) are heavily correlated with *which era/software produced
+this traffic* given the training data (2016-2018 sandboxed executables vs. mostly-modern
+benign), not with malice itself. The earlier curl-vs-browser diagnostic weakened one version
+of this theory ("browser vs. non-browser client") but the real confound was always the
+**temporal one flagged at the time as unresolved**, and this test confirms it directly: a
+model trained only on old-TLS malware does not generalize to new-TLS malware, at all.
+
+**This is the headline finding of the whole real-data effort.** Every "near-perfect" real
+leave-one-family-out number reported above (0.9996+ accuracy/F1) is not a measure of the
+detector's ability to catch malware — it's a measure of its ability to distinguish "2016-2018
+sandbox executable" from "not that," which happens to correlate with the labels in this
+specific, era-confounded dataset and nothing else. **Do not present those numbers as the
+detector's real-world performance.**
+
+`lumma-2025-08-15` is now committed as a labelled capture (`data/labels/lumma-2025-08-15.jsonl`,
+family `lumma_stealer`, environment `mta-net-2025`) so this test is reproducible and can be
+re-run once the training data itself improves.
+
 ### Next steps toward a trustworthy real number
 
-1. Install `tcpreplay` and replay a malware pcap onto the same live interface as a benign
-   capture, so TLS-version/era and network-stack artifacts are controlled for directly —
-   the strongest remaining test of the confound.
-2. Add more malware families so leave-one-family-out isn't estimated from n=3.
-3. Investigate why FoxIO couldn't compute JA4 for the Emotet capture — is it truncation in
+1. **Retrain including a modern (TLS 1.3) malware family** — Lumma Stealer is now available;
+   this alone would test whether the model can learn malice independent of TLS era once it
+   has *both* eras on the malicious side, not just the benign side.
+2. Install `tcpreplay` and replay a malware pcap onto the same live interface as a benign
+   capture, so TLS-version/era and network-stack artifacts are controlled for directly.
+3. Add more malware families (both eras) so leave-one-family-out isn't estimated from n=3-4.
+4. Consider dropping or down-weighting features that are more about "client software era"
+   than "connection behavior" (e.g. raw TLS-version-correlated JA4 components) unless the
+   detector is validated to generalize across TLS versions on the malicious side too.
+5. Investigate why FoxIO couldn't compute JA4 for the Emotet capture — is it truncation in
    the CTU pcap, or a genuinely minimal ClientHello worth featurizing on its own?
