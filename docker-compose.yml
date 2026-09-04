@@ -1,0 +1,35 @@
+# docker-compose.yml
+services:
+  victim:
+    build: ./victim
+    container_name: victim
+    networks:
+      - labnet
+
+  attacker:
+    build: ./attacker
+    container_name: attacker
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    networks:
+      - labnet
+    depends_on:
+      - victim
+    tty: true          # keeps it alive so you can exec in and run hping3 manually
+
+  monitor:
+    build: ./monitor
+    container_name: monitor
+    network_mode: "service:victim"   # shares victim's netns — sees its traffic
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    depends_on:
+      - victim
+    volumes:
+      - ./captures:/captures
+
+networks:
+  labnet:
+    driver: bridge
