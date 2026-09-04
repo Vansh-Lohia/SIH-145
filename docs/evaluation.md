@@ -132,10 +132,57 @@ gaps in the x509 join. This is exactly the "losing a family should degrade, not 
 detector" property the architecture was built for (`CLAUDE.md` §3) — and it is now visible
 on real data, not just asserted.
 
+### Update: adding more benign volume made the number WORSE, not better
+
+Added a second benign source, CTU-Normal-28 (2,697 more real sessions; total real corpus now
+26,478 sessions, 3 malware families + 2 benign captures). Result:
+
+```
+LOFO:dridex     TPR@0.1%FPR = 1.0000
+LOFO:emotet     TPR@0.1%FPR = 1.0000
+LOFO:trickbot   TPR@0.1%FPR = 1.0000
+mean (headline)             = 1.0000
+```
+
+**A perfect 1.0000 across three very different, wholly unrelated malware families is a red
+flag, not a result to report.** Feature sanity check (CLAUDE.md §7 rule 6) on the held-out-
+Dridex model:
+
+```
+size_mean       importance=550
+ja4_ext_count   importance=266
+size_std        importance=161
+iat_mean        importance=142
+```
+
+These are architecturally the *right* features to matter (SPLT is designed to carry exactly
+this signal) — but combined with the known environment confound, perfect separation across
+unrelated families is more consistent with the model learning **"raw executable's minimal
+TLS client vs. a real browser"** than "malicious vs. benign" specifically. All three malware
+captures are unattended Windows binaries making bare TLS connections (few extensions, small
+uniform packets); both benign captures are real user browser traffic (many extensions,
+larger varied packets). That distinction is real, but it isn't the distinction the detector
+needs to make in production, where plenty of legitimate non-browser software (update
+checkers, background services, IoT agents) also makes minimal TLS connections.
+
+**Neither the 0.10 first result nor this 1.00 second result should be reported as the
+detector's real-world performance.** Both are downstream of the same unresolved root cause:
+malicious and benign sessions were captured in different environments by different kinds of
+software. `docs/live_capture_investigation.md` records the attempt to fix this at the source
+(live same-environment capture) and why it's currently blocked (no root in the available
+WSL environment). Two CTU sources that could partially disentangle "sandbox vs. browser" from
+"malicious vs. benign" — a benign non-browser TLS client (e.g., a Windows Update capture) and
+a malicious capture that isn't pre-filtered to infected-host-only traffic — were searched for
+and not found among the captures checked so far.
+
 ### Next steps toward a trustworthy real number
 
-1. Add more malware families (more pcaps) so leave-one-family-out isn't estimated from n=3.
-2. Generate benign traffic **inside the same environment** as a malware replay — closing the
-   environment confound is higher priority than adding more malware families.
-3. Investigate why FoxIO couldn't compute JA4 for the Emotet capture — is it truncation in
+1. **Highest priority, unresolved:** close the environment confound — either live
+   same-environment capture (blocked, see `docs/live_capture_investigation.md`) or find a
+   CTU/other source with malicious and benign traffic from the same network capture.
+2. As a partial diagnostic short of #1: find a **benign, non-browser** TLS source (a
+   background service, not a browser) to test whether "minimal client" alone drives the
+   score, independent of malice.
+3. Add more malware families so leave-one-family-out isn't estimated from n=3.
+4. Investigate why FoxIO couldn't compute JA4 for the Emotet capture — is it truncation in
    the CTU pcap, or a genuinely minimal ClientHello worth featurizing on its own?

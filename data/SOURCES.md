@@ -48,11 +48,16 @@ stopgap:
 | local name | CTU capture | pcap size | TLS sessions |
 |---|---|---|---|
 | `ctu-normal-26` | CTU-Normal-26 | ~112 MB | 1,414 |
+| `ctu-normal-28` | CTU-Normal-28 | ~137 MB | 2,697 |
 
 ```bash
 curl -o data/pcaps/ctu-normal-26.pcap \
   https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-26/2017-04-28_normal.pcap
-bash scripts/run_zeek.sh data/pcaps/ctu-normal-26.pcap data/zeek_logs/ctu-normal-26
+curl -o data/pcaps/ctu-normal-28.pcap \
+  https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-28/2017-05-01_normal.pcap
+for name in ctu-normal-26 ctu-normal-28; do
+  bash scripts/run_zeek.sh data/pcaps/$name.pcap data/zeek_logs/$name
+done
 ```
 
 Mixing benign and malicious from different capture environments (`ctu-normal` vs
