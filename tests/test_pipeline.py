@@ -50,6 +50,22 @@ def test_leave_one_family_out_is_harder_than_random():
     assert np.mean(lofo) <= rand_tpr + 1e-9
 
 
+def test_lofo_never_trains_with_zero_benign():
+    """Regression test: when benign spans too few pcaps, split_by_capture_file's
+    at-least-one-pcap rounding can put ALL benign into test, silently training on
+    malicious-only data. leave_one_family_out must fall back rather than yield that."""
+    bundles = [featurize(s) for s in generate_dataset(n_benign=40, n_per_family=80, seed=11)]
+    # collapse every benign session onto a single synthetic pcap, reproducing the bug found
+    # while diagnosing a real single-pcap live-capture benign source.
+    for b in bundles:
+        if b.label == "benign":
+            b.pcap = "only_one_benign_capture.pcap"
+
+    for train, test, held in protocol.leave_one_family_out(bundles):
+        n_benign_train = sum(1 for b in train if b.label == "benign")
+        assert n_benign_train > 0, f"held={held}: train has zero benign examples"
+
+
 def test_no_flow_from_same_pcap_crosses_split():
     bundles = [featurize(s) for s in generate_dataset(n_benign=300, n_per_family=80, seed=6)]
     tr, te = protocol.split_by_capture_file(bundles, test_fraction=0.3, seed=7)

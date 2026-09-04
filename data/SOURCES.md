@@ -67,6 +67,28 @@ results should be read as provisional** until benign traffic shares the malware'
 environment. See `docs/evaluation.md` for the first real leave-one-family-out result and
 what it does and doesn't tell us.
 
+## Benign — live, self-captured (real, not downloaded)
+
+`scripts/capture_live_benign.sh` implements the §8 recipe directly: it scripts real HTTPS
+requests (curl, 31 popular domains) while `tcpdump` records the actual wire traffic on this
+host. Requires `tcpdump` to have raw-capture rights without sudo (one-time):
+
+```bash
+sudo setcap cap_net_raw,cap_net_admin=eip /usr/bin/tcpdump
+bash scripts/capture_live_benign.sh data/pcaps/live-benign-wsl.pcap eth0 120
+bash scripts/run_zeek.sh data/pcaps/live-benign-wsl.pcap data/zeek_logs/live-benign-wsl
+```
+
+| local name | source | pcap size | TLS sessions |
+|---|---|---|---|
+| `live-benign-wsl` | live capture, this host, 2026 | ~12 MB | 237 (all TLS 1.3) |
+
+Labelled `environment: live-wsl-2026` (see `docs/evaluation.md` for the diagnostic this
+enabled: testing malicious-vs-non-browser-benign separation, which weakened but did not
+eliminate the environment-confound concern). Remaining step: install `tcpreplay` and replay
+a malware pcap through this same live interface to control for TLS-era/network-stack
+artifacts directly.
+
 ## Labels
 
 Each capture has `data/labels/<name>.jsonl` (see `src/encdetect/labels.py` for the schema and

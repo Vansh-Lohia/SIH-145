@@ -50,8 +50,30 @@ def leave_one_family_out(records: list[Any]) -> Iterator[tuple[list[Any], list[A
     benign = [r for r in records if _get(r, "label") == "benign"]
 
     # Deterministic benign split so the benign side isn't identical between train/test.
+    # split_by_capture_file degenerates when benign spans too few pcaps (e.g. one file):
+    # test_fraction rounds up to "at least 1 pcap", which can put the WHOLE benign pool into
+    # test and silently leave train with zero benign examples. Detected here rather than
+    # left to surface as a mysteriously-bad (or mysteriously-perfect) downstream score: fall
+    # back to a session-level split of the benign pool, with a clear warning that this
+    # deviates from strict pcap-level splitting (rule 1) because there isn't enough pcap
+    # diversity on the benign side to do better.
     benign_train, benign_test = split_by_capture_file(benign, test_fraction=0.3, seed=13) \
         if benign else ([], [])
+    if benign and (not benign_train or not benign_test):
+        import random
+        import warnings
+        warnings.warn(
+            f"leave_one_family_out: benign spans only {len({_get(r, 'pcap') for r in benign})} "
+            "pcap(s), so split_by_capture_file put them all on one side (train would have "
+            "gotten zero benign examples). Falling back to a session-level 70/30 split of "
+            "the benign pool -- this deviates from strict pcap-level splitting (rule 1) and "
+            "should be treated as a data-collection gap (add more benign captures), not fixed "
+            "by this fallback alone.", stacklevel=2)
+        rng = random.Random(13)
+        shuffled = list(benign)
+        rng.shuffle(shuffled)
+        split = int(len(shuffled) * 0.7)
+        benign_train, benign_test = shuffled[:split], shuffled[split:]
 
     for held in families:
         mal_train = [r for r in records

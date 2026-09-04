@@ -1,4 +1,13 @@
-# Live benign-traffic capture — investigated, currently blocked
+# Live benign-traffic capture — was blocked, now unblocked
+
+**Update 2026-09-04:** the user ran the one-time `setcap` command below. Live capture now
+works. `scripts/capture_live_benign.sh` scripts real HTTPS traffic (curl to 31 popular
+domains) while `tcpdump` records it — 237 real TLS 1.3 sessions captured in ~2 minutes, no
+sudo needed. See `docs/evaluation.md` ("Update: live capture unblocked...") for what this
+did and didn't resolve. `tcpreplay` (needed to also replay a malware pcap through the same
+live interface) is still not installed — that's the next concrete step, not a blocker.
+
+The original investigation is kept below for reference.
 
 `CLAUDE.md` §8 prefers benign traffic **generated on the same network and period as the
 malware replay** over a downloaded stand-in, because that's what actually removes the

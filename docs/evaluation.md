@@ -175,14 +175,64 @@ WSL environment). Two CTU sources that could partially disentangle "sandbox vs. 
 a malicious capture that isn't pre-filtered to infected-host-only traffic — were searched for
 and not found among the captures checked so far.
 
+### Update: live capture unblocked, and the "browser artifact" theory did NOT hold up
+
+`docs/live_capture_investigation.md` recorded that live packet capture was blocked (no
+`CAP_NET_RAW` without an interactive sudo password). The user later ran, once:
+
+```bash
+sudo setcap cap_net_raw,cap_net_admin=eip /usr/bin/tcpdump
+```
+
+That unblocked live capture permanently. `scripts/capture_live_benign.sh` was built and run:
+it scripts real HTTPS visits (curl, not a browser — 31 popular real domains) while `tcpdump`
+records the actual wire traffic, for 2 minutes on this live WSL host. Result: 237 genuine
+TLS 1.3 sessions, JA4 `t13d3013h2_…` (a real curl/OpenSSL fingerprint), captured **today**,
+not downloaded. Labelled `environment: live-wsl-2026` and added to the dataset (now 26,715
+sessions).
+
+**Diagnostic: does malicious-vs-benign separation survive when benign is non-browser?**
+The earlier 1.0000 result was suspected to be "sandboxed executable's minimal TLS client vs.
+a real browser" rather than genuine malice detection. curl is *also* a minimal, non-browser
+TLS client — so if that theory were right, malicious-vs-curl-benign should be much harder
+than malicious-vs-real-browser-benign was. It measured the opposite:
+
+```
+LOFO:dridex     mal score mean=1.0000  benign score mean=0.0000  (TPR@0.1%FPR = 1.0000)
+LOFO:emotet     mal score mean=1.0000  benign score mean=0.0000  (TPR@0.1%FPR = 1.0000)
+LOFO:trickbot   mal score mean=1.0000  benign score mean=0.0000  (TPR@0.1%FPR = 1.0000)
+```
+
+(First attempt at this diagnostic was itself buggy twice, worth recording so it isn't
+repeated: (a) running it through `protocol.leave_one_family_out()` with only one benign pcap
+put the *entire* file into the test split — rule 1's file-level split logic degenerates when
+there's only one file per class, silently training with **zero** benign examples; (b) a
+naive manual fix then put the *same* benign sessions in both train and test, leaking. The
+number above uses a proper 50/50 held-out split of the live-benign *sessions* — a deliberate,
+documented deviation from strict pcap-level splitting, justified only because this is a
+single homogeneous capture of repeated scripted requests, not multiple distinct attacker
+sessions where rule 1's concern about capture-specific artifacts leaking across the split
+would actually apply.)
+
+**This weakens, but doesn't eliminate, the environment-confound concern.** Non-browser benign
+traffic separates from malware just as cleanly as browser benign traffic did, which argues
+against "minimal client" being the whole story. What remains unruled-out: (1) **temporal
+mismatch** — this benign capture is from 2026; the malware captures are 2016–2018, so TLS
+version distribution alone (this capture is 100% TLS 1.3; the malware is entirely TLS 1.0/1.2)
+could still be doing a lot of the separating work, independent of malice; (2) **duration/
+beaconing** — C2 sessions in these captures run long with periodic beacons, while curl's
+one-shot GETs are short, and "long + periodic" is a real malicious indicator but also
+plausibly present in some legitimate long-lived connections (streaming, sync clients) not
+represented in this quick capture. True resolution still needs a malware pcap replayed
+through `tcpreplay` onto the *same* live interface as the benign capture, which is not yet
+installed (`tcpreplay` needs a package install, a separate ask from the `tcpdump` setcap
+already granted) — noted as the concrete remaining step, not a blocker on further work.
+
 ### Next steps toward a trustworthy real number
 
-1. **Highest priority, unresolved:** close the environment confound — either live
-   same-environment capture (blocked, see `docs/live_capture_investigation.md`) or find a
-   CTU/other source with malicious and benign traffic from the same network capture.
-2. As a partial diagnostic short of #1: find a **benign, non-browser** TLS source (a
-   background service, not a browser) to test whether "minimal client" alone drives the
-   score, independent of malice.
-3. Add more malware families so leave-one-family-out isn't estimated from n=3.
-4. Investigate why FoxIO couldn't compute JA4 for the Emotet capture — is it truncation in
+1. Install `tcpreplay` and replay a malware pcap onto the same live interface as a benign
+   capture, so TLS-version/era and network-stack artifacts are controlled for directly —
+   the strongest remaining test of the confound.
+2. Add more malware families so leave-one-family-out isn't estimated from n=3.
+3. Investigate why FoxIO couldn't compute JA4 for the Emotet capture — is it truncation in
    the CTU pcap, or a genuinely minimal ClientHello worth featurizing on its own?
