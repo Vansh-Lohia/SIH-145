@@ -1,75 +1,66 @@
 #!/usr/bin/env python3
-"""Extract every pcap in a batch dir into one merged, time-sorted labeled CSV
-matching the streaming simulator's schema (identity + 17 CIC features + Label +
-Scan_Type). Usage: build_batch.py <batch_dir> <out.csv>"""
+"""Build a labeled, time-interleaved CSV from a batch captured by capture_batch.sh.
+
+The batch dir holds ONE interleaved capture (`stream.pcap`) plus `roles.csv`
+mapping every source IP to (Label, Scan_Type). We extract forward-only CIC
+features from the pcap, then label each flow by its src_ip. Flows whose src_ip
+is not a known role (victim reply packets, strays) are dropped -- this enforces
+the strictly one-way constraint and never mislabels a reverse flow.
+
+Usage: build_batch.py <batch_dir> <out.csv>
+"""
 import subprocess, sys, csv, glob, os
 from pathlib import Path
+from collections import Counter
 
 HERE = Path(__file__).resolve().parent
 PY = sys.executable
 
-# Victim / protected hosts in the lab topology. A passive data-diode monitor
-# sees only ONE direction (client -> server). tcpdump on the attacker NIC also
-# records the victims' reverse replies (SYN-ACK/RST, ncat echoes); those are
-# reverse-direction and must be dropped so the dataset is strictly one-way and
-# victim replies are never mislabeled as scan traffic.
-VICTIM_HOSTS = {"10.10.10.3"} | {f"10.10.10.{i}" for i in range(10, 41)}
 
-# pcap basename -> (Label, Scan_Type)
-MAP = {
-    "benign":          ("BENIGN",   "benign"),
-    "benign_chatty":   ("BENIGN",   "chatty"),     # high-fan-out benign (FP stress)
-    "scan_vertical":   ("PortScan", "vertical"),
-    "scan_connect":    ("PortScan", "vertical"),   # -sT connect scan (vertical pattern)
-    "scan_service":    ("PortScan", "vertical"),   # -sV version scan (vertical pattern)
-    "scan_horizontal": ("PortScan", "horizontal"),
-    "scan_mixed":      ("PortScan", "mixed"),
-    "scan_slow":       ("PortScan", "slow"),
-    "scan_stealth":    ("PortScan", "stealth"),    # low-fan-out scan (recall stress)
-}
+def load_roles(batch_dir: str):
+    roles = {}
+    with open(Path(batch_dir) / "roles.csv") as fh:
+        for r in csv.DictReader(fh):
+            roles[r["src_ip"]] = (r["Label"], r["Scan_Type"])
+    return roles
 
 
 def main() -> int:
     batch_dir, out_csv = sys.argv[1], sys.argv[2]
-    tmp_dir = Path(batch_dir) / "_parts"
-    tmp_dir.mkdir(exist_ok=True)
+    roles = load_roles(batch_dir)
 
+    pcaps = glob.glob(f"{batch_dir}/*.pcap")
+    if not pcaps:
+        print("no pcap found"); return 1
+
+    tmp = Path(batch_dir) / "_raw.csv"
     rows, header = [], None
-    for pcap in sorted(glob.glob(f"{batch_dir}/*.pcap")):
-        base = Path(pcap).stem
-        if base not in MAP:
-            print(f"  ! skip {base} (no label mapping)"); continue
-        label, stype = MAP[base]
-        part = tmp_dir / f"{base}.csv"
+    for pcap in sorted(pcaps):
         subprocess.run([PY, str(HERE / "pcap_to_cic.py"), "--pcap", pcap,
-                        "--label", label, "--scan-type", stype, "--out", str(part)],
-                       check=True)
-        with open(part) as fh:
-            r = csv.reader(fh)
-            h = next(r)
-            header = header or h
-            src_i = h.index("src_ip")
-            kept = [row for row in r if row[src_i] not in VICTIM_HOSTS]
-            rows.extend(kept)
-
-    if header is None:
-        print("no pcaps found"); return 1
+                        "--label", "_", "--scan-type", "_", "--out", str(tmp)], check=True)
+        with open(tmp) as fh:
+            r = csv.reader(fh); h = next(r); header = header or h
+            si, li, ti = h.index("src_ip"), h.index("Label"), h.index("Scan_Type")
+            for row in r:
+                role = roles.get(row[si])
+                if role is None:            # not a known source => reverse/stray => drop
+                    continue
+                row[li], row[ti] = role      # label by src_ip role
+                rows.append(row)
+    tmp.unlink(missing_ok=True)
 
     ts_i = header.index("timestamp")
     rows.sort(key=lambda x: float(x[ts_i]))
     with open(out_csv, "w", newline="") as fh:
         w = csv.writer(fh); w.writerow(header); w.writerows(rows)
 
-    # summary
-    lab_i, st_i = header.index("Label"), header.index("Scan_Type")
-    from collections import Counter
-    labc, stc = Counter(r[lab_i] for r in rows), Counter(r[st_i] for r in rows)
+    li, ti, si2, di, pi = (header.index(c) for c in ("Label", "Scan_Type", "src_ip", "dst_ip", "dst_port"))
     print(f"\n[build] {out_csv}: {len(rows)} flows")
-    print(f"[build] labels: {dict(labc)}")
-    print(f"[build] scan types: {dict(stc)}")
-    print(f"[build] unique src_ip: {len({r[header.index('src_ip')] for r in rows})} | "
-          f"unique dst_ip: {len({r[header.index('dst_ip')] for r in rows})} | "
-          f"unique dst_port: {len({r[header.index('dst_port')] for r in rows})}")
+    print(f"[build] labels: {dict(Counter(r[li] for r in rows))}")
+    print(f"[build] scan types: {dict(Counter(r[ti] for r in rows))}")
+    print(f"[build] unique src_ip: {len({r[si2] for r in rows})} | "
+          f"unique dst_ip: {len({r[di] for r in rows})} | "
+          f"unique dst_port: {len({r[pi] for r in rows})}")
     return 0
 
 

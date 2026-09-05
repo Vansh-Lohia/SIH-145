@@ -180,11 +180,15 @@ feature ever appears in the approved list or a saved model.
 
 Training and evaluation data are **generated as real packets** in a small Docker
 lab (attacker + victim on a bridge network), not from a static third-party CSV.
-`portscan-lab/capture_batch.sh` drives an attacker container to emit the traffic
-below, captured with tcpdump. `portscan-lab/pcap_to_cic.py` extracts the **17
-approved forward-only CIC features** straight from the packets, keeping
+`portscan-lab/capture_batch.sh` runs benign traffic **continuously in the
+background while the scans fire at staggered start times**, so scans and normal
+traffic **coexist in time** (a real link, not "all benign then all scans") — all
+into one `stream.pcap`. Every source IP is assigned a role (written to
+`roles.csv`). `portscan-lab/pcap_to_cic.py` extracts the **17 approved
+forward-only CIC features** straight from the packets, keeping
 `src_ip`/`dst_ip`/`dst_port`/`timestamp`, and `portscan-lab/build_batch.py`
-drops the victims' reverse replies so the dataset is **strictly one-way**
+labels each flow by its source-IP role and drops flows from unknown sources
+(the victims' reverse replies), so the dataset is **strictly one-way**
 (client → server only).
 
 **The classes deliberately overlap in per-flow feature space**, so no single
