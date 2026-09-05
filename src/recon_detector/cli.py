@@ -134,7 +134,7 @@ def build_parser() -> argparse.ArgumentParser:
                                 description="Passive one-way port-scan detector")
     sub = p.add_subparsers(dest="command", required=True)
 
-    common_model = dict(default="models", help="model artifact directory")
+    common_model = dict(default="models_docker", help="model artifact directory")
 
     ptr = sub.add_parser("train", help="train per-flow model from CIC dataset")
     ptr.add_argument("--dataset", default=None, help="path to CIC PortScan CSV")

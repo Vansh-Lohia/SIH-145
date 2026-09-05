@@ -150,12 +150,14 @@ def features_for(f: Flow) -> Dict[str, float]:
 def main() -> int:
     ap = argparse.ArgumentParser(description="pcap -> labeled CIC-schema CSV (forward-only)")
     ap.add_argument("--pcap", required=True)
-    ap.add_argument("--label", required=True, help="e.g. PortScan or BENIGN")
+    ap.add_argument("--label", required=True, help="PortScan or BENIGN")
+    ap.add_argument("--scan-type", default="benign",
+                    help="benign|vertical|horizontal|slow|mixed (per-category ground truth)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
 
     flows = extract(a.pcap)
-    cols = IDENTITY_COLS + APPROVED_FEATURES + ["Label"]
+    cols = IDENTITY_COLS + APPROVED_FEATURES + ["Label", "Scan_Type"]
     with open(a.out, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=cols)
         w.writeheader()
@@ -163,11 +165,12 @@ def main() -> int:
             row = {
                 "timestamp": round(f.first_ts, 6),
                 "src_ip": src, "dst_ip": dst, "dst_port": dport, "protocol": proto,
-                "Label": a.label,
+                "Label": a.label, "Scan_Type": a.scan_type,
             }
             row.update(features_for(f))
             w.writerow(row)
-    print(f"[pcap_to_cic] {a.pcap}: {len(flows)} forward flows -> {a.out} (Label={a.label})")
+    print(f"[pcap_to_cic] {a.pcap}: {len(flows)} forward flows -> {a.out} "
+          f"(Label={a.label} Scan_Type={a.scan_type})")
     return 0
 
 

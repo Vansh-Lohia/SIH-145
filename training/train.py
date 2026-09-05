@@ -272,7 +272,7 @@ def main() -> int:
 
     ap = argparse.ArgumentParser(description="Train the per-flow scan classifier")
     ap.add_argument("--dataset", default=None)
-    ap.add_argument("--model-dir", default="models")
+    ap.add_argument("--model-dir", default="models_docker")
     ap.add_argument("--test-size", type=float, default=0.3)
     ap.add_argument("--n-estimators", type=int, default=100)
     ap.add_argument("--max-rows", type=int, default=None)

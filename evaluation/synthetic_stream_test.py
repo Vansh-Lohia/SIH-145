@@ -138,7 +138,7 @@ def main() -> int:
     import argparse
 
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model-dir", default="models")
+    ap.add_argument("--model-dir", default="models_docker")
     a = ap.parse_args()
     run_all(a.model_dir)
     slow_rate_sweep(a.model_dir)

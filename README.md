@@ -176,28 +176,38 @@ carries a `FORBIDDEN_SUBSTRINGS` guard and `assert_features_are_one_way()`;
 `tests/test_one_way_constraints.py` fails the build if a reverse-direction
 feature ever appears in the approved list or a saved model.
 
-## 15. Dataset limitation
+## 15. Dataset — real one-way traffic captured in Docker (`portscan-lab/`)
 
-Training uses `Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv`
-(CICFlowMeter/CICIDS-2017; 286,467 rows, labels `BENIGN` 127,537 / `PortScan`
-158,930). **CICFlowMeter produces bidirectional flow records, so this is NOT a
-true strict-one-way dataset.** We use only observed-direction-compatible
-features for supervised training, while production inference is designed for
-strict one-directional passive input. The CSV also has **no src/dst IP or
-timestamp columns**, so source-level behavioural evaluation cannot come from it
-(see *Data leakage*).
+Training and evaluation data are **generated as real packets** in a small Docker
+lab (attacker + victim on a bridge network), not from a static third-party CSV.
+`portscan-lab/capture_batch.sh` drives an attacker container to emit benign
+traffic (varied-size client sessions + legitimate high-fan-out monitoring) and
+four scan types (vertical, horizontal, mixed, slow) with nmap, captured with
+tcpdump. `portscan-lab/pcap_to_cic.py` extracts the **17 approved forward-only
+CIC features** straight from the packets, keeping `src_ip`/`dst_ip`/`dst_port`/
+`timestamp`, and `portscan-lab/build_batch.py` drops the victims' reverse
+replies so the dataset is **strictly one-way** (client → server only).
+
+Two batches are captured with **disjoint source-IP ranges**, giving a true
+**source-disjoint** train/eval split — the split CIC-IDS-2017 could never
+provide because it has no source/timestamp columns. A third `hard` batch (slow
+`-T2` timing + nmap decoys) probes generalization to different scan timing and
+evasion. Because we control capture, the data carries real `src_ip`/`timestamp`
+keys, so source-level behavioural evaluation is possible.
 
 ## 16. Training (`training/train.py`)
 
-Reproducible pipeline (fixed `random_state=42`): locate dataset → inspect
-columns/labels → validate approved features → replace inf, drop/​impute invalid
-values (medians saved for inference) → stratified split → train RandomForest →
-evaluate → save `per_flow_model.joblib`, `feature_list.json`, and
-`metadata.json` (dataset, timestamp, medians, feature importances, holdout
-metrics, leakage caveat, Python version). No large hyperparameter search.
+Reproducible pipeline (fixed `random_state=42`): load the captured train CSV →
+validate approved features → replace inf / impute invalid values (medians saved
+for inference) → **group-disjoint cross-validation** on feature-vector
+fingerprints (so duplicate/near-duplicate flows never leak across folds) → fit
+the final RandomForest on all train rows → save `per_flow_model.joblib`,
+`feature_list.json`, and `metadata.json` (dataset, timestamp, medians, feature
+importances, CV metrics, Python version).
 
 ```bash
-python training/train.py --dataset /path/to/Friday-...-PortScan.pcap_ISCX.csv
+# generate the training batch (see Setup below), then:
+python training/train.py --dataset portscan-lab/train_docker.csv --model-dir models_docker
 ```
 
 ## 17. Evaluation
@@ -205,19 +215,25 @@ python training/train.py --dataset /path/to/Friday-...-PortScan.pcap_ISCX.csv
 Separated deliberately (spec §25):
 
 - **A. Offline supervised benchmark** (`evaluation/evaluate_model.py`) — reports
-  the group-disjoint cross-validated metrics saved by `training/train.py`
-  (`training/train.py` groups rows by exact feature-vector fingerprint before
-  splitting, so duplicate/near-duplicate flows can't leak across train/test,
-  then cross-validates across every fold). The previously reported precision
-  **0.9995** / recall **0.9999** came from a stratified *random* split and
-  turned out to be mostly duplicate-flow memorization — ~79% of rows in the
-  CIC PortScan CSV are exact duplicates on the 17 approved features. Once that
-  leakage is removed, true cross-fold recall is far lower (see
-  `models/training_metrics.json` for current numbers) because a couple of
-  single flow shapes each span >25% of the dataset and behave as near-disjoint
-  populations. **These numbers still do NOT equal real-world streaming
-  performance** — the dataset has no source/time keys, so this is a
-  group-disjoint split, not a true source- or time-disjoint one.
+  the group-disjoint cross-validated per-flow metrics saved by
+  `training/train.py` (rows grouped by exact feature-vector fingerprint before
+  splitting, so duplicate/near-duplicate flows can't leak across folds). See
+  `models_docker/training_metrics.json` for current numbers. Scan probes are
+  near-identical tiny flows, so a large fraction of rows are duplicate
+  fingerprints — the group-disjoint folds keep those out of cross-fold leakage.
+  **These per-flow numbers do NOT equal streaming performance** — evaluation B
+  is the real test.
+
+- **A′. Live streaming evaluation** (`simulate_live_stream.py`) — replays a
+  **separate, source-disjoint** real captured batch one flow at a time through
+  `ReconDetector` with ground truth hidden, and reports accuracy / precision /
+  recall / F1, a confusion matrix, per-scan-type detection rates, and the benign
+  false-positive rate. This is the headline metric: it exercises the streaming
+  behavioural layer on traffic from source IPs the model never trained on.
+
+  ```bash
+  python simulate_live_stream.py --csv portscan-lab/eval_docker.csv --model-dir models_docker
+  ```
 - **B / C. Source-level & synthetic strict-one-way evaluation**
   (`evaluation/synthetic_stream_test.py`) — scenarios A–L below.
 - **D. Throughput benchmark** (`evaluation/benchmark.py`).
@@ -379,32 +395,55 @@ persistence, and we explicitly bound our claims accordingly.
 
 ```
 src/recon_detector/   schemas · features · model · behavior · detector · cli · synthetic · baselines
+portscan-lab/         Docker traffic lab: Dockerfile · docker-compose.yml ·
+                      capture_batch.sh · pcap_to_cic.py · build_batch.py
 training/train.py     reproducible training pipeline
 evaluation/           evaluate_model · synthetic_stream_test · benchmark
+simulate_live_stream.py   blind streaming evaluation on a real captured batch
 tests/                model · behavior · detector · one_way_constraints
-models/               saved artifact (per_flow_model.joblib, feature_list.json, metadata.json, *_eval.json)
+models_docker/        saved artifact (per_flow_model.joblib, feature_list.json, metadata.json, *_eval.json)
 ```
 
+`synthetic.py` / `synthetic_stream_test.py` generate controlled in-memory
+scenarios (camouflage, evasion, multi-source) used by the unit tests and the
+`demo` CLI — behavioural regression fixtures, **not** training data.
+
 ## Setup and reproduce
+
+All data is real traffic captured in Docker. Requires Docker running plus
+Python 3.10+ (numpy, pandas, scikit-learn, joblib, scapy; pytest for tests).
 
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt          # or: pip install -e .
-python training/train.py --dataset /path/to/Friday-...-PortScan.pcap_ISCX.csv
-python evaluation/evaluate_model.py --model-dir models --out models/offline_eval.json
-python evaluation/synthetic_stream_test.py --model-dir models
-python evaluation/benchmark.py --model-dir models
+
+# 1. bring up the lab (attacker + victim containers)
+cd portscan-lab && docker compose up -d --build
+
+# 2. capture two SOURCE-DISJOINT real batches (train + eval), then a hard one
+./capture_batch.sh pcaps_train 50  default
+./capture_batch.sh pcaps_eval  90  default
+./capture_batch.sh pcaps_hard  130 hard        # optional: generalization probe
+
+# 3. build forward-only labeled CSVs (identity + 17 CIC features + Label + Scan_Type)
+python build_batch.py pcaps_train train_docker.csv
+python build_batch.py pcaps_eval  eval_docker.csv
+cd ..
+
+# 4. train on the train batch, evaluate on the separate eval batch
+python training/train.py --dataset portscan-lab/train_docker.csv --model-dir models_docker
+python evaluation/evaluate_model.py --model-dir models_docker --out models_docker/offline_eval.json
+python simulate_live_stream.py --csv portscan-lab/eval_docker.csv --model-dir models_docker
 pytest
 ```
 
-Requires Python 3.10+ and numpy, pandas, scikit-learn, joblib (pytest for tests).
-
 ## Scientific honesty
 
-We never claim: that CICIDS is a true one-way dataset; that reverse traffic is
-available; that ports can be confirmed open; that connection success is known;
-that scores are calibrated probabilities; that arbitrarily slow or distributed
-scans are guaranteed detected; that benchmark F1 equals real-world performance;
-or that the detector is immune to evasion. Measured results, engineering
-heuristics, research-derived design principles, assumptions, and limitations are
-labelled as such throughout.
+We never claim: that the Docker-captured traffic equals real internet-scale
+diversity (it is a controlled lab — nmap scan shapes and generated benign, so
+metrics are an upper bound); that reverse traffic is available; that ports can
+be confirmed open; that connection success is known; that scores are calibrated
+probabilities; that arbitrarily slow or distributed scans are guaranteed
+detected; that eval-batch F1 equals production performance; or that the detector
+is immune to evasion. Measured results, engineering heuristics, research-derived
+design principles, assumptions, and limitations are labelled as such throughout.

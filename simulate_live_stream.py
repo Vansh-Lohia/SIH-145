@@ -29,7 +29,7 @@ from recon_detector.schemas import DetectionResult, FlowRecord
 
 def run_stream_simulation(
     csv_path: str,
-    model_dir: str = "models_custom",
+    model_dir: str = "models_docker",
     delay_ms: float = 0.0,
     show_alerts: bool = True,
 ) -> Dict:
@@ -187,8 +187,10 @@ def run_stream_simulation(
 
 def main():
     parser = argparse.ArgumentParser(description="Simulate live streaming traffic with blind accuracy testing")
-    parser.add_argument("--csv", default="dataset_custom/test.csv", help="CSV stream file to replay")
-    parser.add_argument("--model-dir", default="models_custom", help="Path to trained model artifact directory")
+    parser.add_argument("--csv", default="portscan-lab/eval_docker.csv",
+                        help="CSV stream file to replay (real Docker-captured eval batch)")
+    parser.add_argument("--model-dir", default="models_docker",
+                        help="Path to trained model artifact directory")
     parser.add_argument("--delay-ms", type=float, default=0.0, help="Artificial delay in milliseconds per packet")
     parser.add_argument("--quiet", action="store_true", help="Do not print individual alert lines")
     args = parser.parse_args()

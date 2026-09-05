@@ -46,7 +46,7 @@ def main() -> int:
     import argparse
 
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model-dir", default="models")
+    ap.add_argument("--model-dir", default="models_docker")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
     run_evaluation(a.model_dir, a.out)

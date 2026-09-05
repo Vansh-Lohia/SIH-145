@@ -115,7 +115,7 @@ def main() -> int:
     import argparse
 
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model-dir", default="models")
+    ap.add_argument("--model-dir", default="models_docker")
     ap.add_argument("--n", type=int, default=100_000)
     a = ap.parse_args()
     run_throughput(a.model_dir, n=a.n)

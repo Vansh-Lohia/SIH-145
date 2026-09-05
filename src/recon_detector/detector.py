@@ -48,14 +48,23 @@ class DetectorConfig:
     w_persistence: float = 0.25
 
     # Fan-out saturation scales (a "knee" number of scan-like pairs / windows).
-    fanout_pair_scale: float = 20.0
-    persistence_scale: float = 3.0
+    # These are tuned so the fused score reaches the detection threshold exactly
+    # when the slow-path count gate below (min_persistence_override +
+    # min_slow_scan_pairs) is satisfied -- otherwise the score vetoes slow scans
+    # for ~2 extra probes and, because slow sessions are short, most of the scan
+    # is missed. Benign/sparse traffic contributes ~0 scan-like pairs and cannot
+    # reach these knees, so faster saturation does not cost false positives.
+    fanout_pair_scale: float = 12.0
+    persistence_scale: float = 2.0
 
     # Detection gate.
     detection_threshold: float = 0.6
     min_observed_flows: int = 8           # burst path: flows in recent window
     min_persistence_override: int = 2     # slow path: distinct suspicious windows
-    min_slow_scan_pairs: int = 10         # slow path: cumulative scan-like pairs
+    min_slow_scan_pairs: int = 8          # slow path: cumulative scan-like pairs
+                                          # (matches the burst evidence bar; benign
+                                          # traffic yields ~0 scan-like pairs, so this
+                                          # only affects genuine spread-out probing)
 
     # Scan-type classification thresholds (documented; evaluated in synthetic tests).
     min_ports_vertical: int = 6

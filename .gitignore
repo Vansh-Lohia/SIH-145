@@ -5,6 +5,8 @@ __pycache__/
 build/
 dist/
 .pytest_cache/
-# Large data & local artifacts (regenerate via training)
+.DS_Store
+# Large data & local artifacts (regenerate via Docker capture -> training)
 *.csv
 *.pcap
+portscan-lab/pcaps_*/
