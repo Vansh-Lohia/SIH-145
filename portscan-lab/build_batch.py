@@ -19,6 +19,8 @@ VICTIM_HOSTS = {"10.10.10.3"} | {f"10.10.10.{i}" for i in range(10, 41)}
 MAP = {
     "benign":          ("BENIGN",   "benign"),
     "scan_vertical":   ("PortScan", "vertical"),
+    "scan_connect":    ("PortScan", "vertical"),   # -sT connect scan (vertical pattern)
+    "scan_service":    ("PortScan", "vertical"),   # -sV version scan (vertical pattern)
     "scan_horizontal": ("PortScan", "horizontal"),
     "scan_mixed":      ("PortScan", "mixed"),
     "scan_slow":       ("PortScan", "slow"),

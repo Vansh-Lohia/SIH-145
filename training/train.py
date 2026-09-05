@@ -10,15 +10,17 @@ Only approved observed-direction features are used (see
 ``recon_detector.features.APPROVED_FEATURES``).  ``Destination Port`` is
 intentionally NOT a model feature; it is a behavioural key.
 
-Leakage caveat (spec section 25): the CIC CSV has no source-IP / timestamp
-columns, so we cannot do a true source- or time-disjoint split. However, the
-dataset is ~25% exact-duplicate rows (72,353 / 286,467 in the PortScan CSV) --
-a plain random split lets near-identical flows land on both sides, inflating
-holdout metrics. We instead group rows by their exact feature-vector fingerprint
-(duplicate/near-duplicate flows always land entirely in train or entirely in
-test) and split on those groups with ``StratifiedGroupKFold``. This does not
-fully substitute for a source/time-disjoint split, but it removes the specific,
-measured leakage source that exists in this dataset.
+Data (spec section 25): training uses a Docker-captured, forward-direction-only
+batch (see ``portscan-lab/``). Scan probes are near-identical tiny flows, so many
+rows share an exact feature-vector fingerprint -- a plain random split would let
+near-identical flows land on both sides and inflate holdout metrics. We instead
+group rows by that fingerprint (duplicate/near-duplicate flows always land
+entirely in train or entirely in test) and split on those groups with
+``StratifiedGroupKFold``. These per-flow CV numbers are NOT the headline: the
+real evaluation is ``simulate_live_stream.py`` replaying a SEPARATE,
+source-disjoint captured batch through the full behavioural detector. Because we
+control capture, the data carries real src/dst IP + timestamp keys, so that
+source-disjoint streaming evaluation is available.
 """
 
 from __future__ import annotations
@@ -39,11 +41,9 @@ sys.path.insert(0, str(_ROOT / "src"))
 from recon_detector.features import APPROVED_FEATURES, assert_features_are_one_way  # noqa: E402
 from recon_detector.model import train_per_flow_model  # noqa: E402
 
+# Default location of the Docker-captured training batch (see portscan-lab/).
 DATASET_CANDIDATES = [
-    "Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv",
-    "~/Downloads/Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv",
-    "~/Downloads/archive/Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv",
-    "data/Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv",
+    "portscan-lab/train_docker.csv",
 ]
 
 POSITIVE_LABELS = {"portscan", "port scan", "scan"}
@@ -56,7 +56,8 @@ def locate_dataset(explicit: Optional[str] = None) -> Path:
         if p.exists():
             return p
     raise FileNotFoundError(
-        "Could not locate the CIC PortScan CSV. Pass --dataset PATH. Tried: "
+        "Could not locate a training CSV. Capture one with portscan-lab/ "
+        "(capture_batch.sh + build_batch.py) or pass --dataset PATH. Tried: "
         + ", ".join(str(Path(c).expanduser()) for c in candidates)
     )
 
@@ -230,17 +231,17 @@ def run_training(
             "label_info": info,
             "split_info": split_info,
             "leakage_caveat": (
-                "CIC CSV lacks src/dst IP and timestamp columns, so this is not a "
-                "true source- or time-disjoint split -- offline metrics still do NOT "
-                "prove real-world streaming performance (spec section 25). Metrics ARE "
-                "from feature-vector-fingerprint GROUP-disjoint cross-validation "
-                "(StratifiedGroupKFold, all folds evaluated), which removes the measured "
-                f"duplicate-row leakage ({split_info['duplicate_row_fraction']:.1%} of rows) "
-                "that a plain random split let leak across train/test. Cross-validating "
-                "every fold (rather than one split) also revealed that a couple of "
-                "single flow shapes each span >25% of all rows -- a single split can "
-                "silo an entire shape out of training by chance; the per-fold spread in "
-                "cv_metrics reflects that instability honestly instead of hiding it."
+                "These are PER-FLOW offline metrics from feature-vector-fingerprint "
+                "GROUP-disjoint cross-validation (StratifiedGroupKFold, all folds "
+                "evaluated), which keeps duplicate/near-identical scan probes "
+                f"({split_info['duplicate_row_fraction']:.1%} of rows here) from leaking "
+                "across folds. They still do NOT prove streaming performance -- the real "
+                "test is simulate_live_stream.py replaying a SEPARATE, source-disjoint "
+                "Docker-captured batch (different attacker/client IPs) through the full "
+                "behavioural detector. The captured data does carry src/dst IP + timestamp "
+                "keys, so that source-disjoint streaming evaluation is available; run it "
+                "and treat its numbers, not these, as the headline. Both are lab-generated "
+                "traffic, so all figures are an upper bound on real-world performance."
             ),
             "excluded_by_design": {
                 "Destination Port": "used as behavioural key, not an ML identity",

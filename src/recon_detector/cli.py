@@ -1,7 +1,7 @@
 """Command-line interface: ``python -m recon_detector <command>``.
 
 Commands:
-    train     -- train the per-flow model from the CIC dataset
+    train     -- train the per-flow model from a captured dataset CSV
     evaluate  -- offline supervised metrics on a holdout split
     stream    -- run the streaming detector over JSONL / CSV-replay input
     demo      -- run built-in synthetic scenarios and print detections
@@ -136,8 +136,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     common_model = dict(default="models_docker", help="model artifact directory")
 
-    ptr = sub.add_parser("train", help="train per-flow model from CIC dataset")
-    ptr.add_argument("--dataset", default=None, help="path to CIC PortScan CSV")
+    ptr = sub.add_parser("train", help="train per-flow model from a captured dataset CSV")
+    ptr.add_argument("--dataset", default=None, help="path to training CSV (e.g. portscan-lab/train_docker.csv)")
     ptr.add_argument("--model-dir", **common_model)
     ptr.add_argument("--test-size", type=float, default=0.3)
     ptr.add_argument("--n-estimators", type=int, default=100)

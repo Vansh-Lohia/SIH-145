@@ -23,8 +23,8 @@
   "per_fold": [
     {
       "fold": 0,
-      "n_train": 2081,
-      "n_test": 3702,
+      "n_train": 2067,
+      "n_test": 3694,
       "precision": 1.0,
       "recall": 1.0,
       "f1": 1.0,
@@ -33,8 +33,8 @@
     },
     {
       "fold": 1,
-      "n_train": 4741,
-      "n_test": 1042,
+      "n_train": 4727,
+      "n_test": 1034,
       "precision": 1.0,
       "recall": 1.0,
       "f1": 1.0,
@@ -43,8 +43,8 @@
     },
     {
       "fold": 2,
-      "n_train": 4744,
-      "n_test": 1039,
+      "n_train": 4728,
+      "n_test": 1033,
       "precision": 1.0,
       "recall": 1.0,
       "f1": 1.0,

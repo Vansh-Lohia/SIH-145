@@ -1,32 +1,32 @@
 {
   "dataset": "portscan-lab/train_docker.csv",
-  "trained_at": "2026-09-05T00:02:42.453164+00:00",
+  "trained_at": "2026-09-05T01:56:51.885738+00:00",
   "test_size": 0.3,
   "label_info": {
-    "n_rows": 5783,
+    "n_rows": 7050,
     "label_column": "Label",
     "label_counts": {
-      "PortScan": 3425,
-      "BENIGN": 2358
+      "PortScan": 4115,
+      "BENIGN": 2935
     },
-    "positive_rate": 0.5922531558014871,
+    "positive_rate": 0.5836879432624114,
     "columns_total": 24
   },
   "split_info": {
     "method": "StratifiedGroupKFold cross-validation on feature-vector fingerprint groups",
-    "n_groups": 2395,
-    "duplicate_rows_removed_from_leakage": 3388,
-    "duplicate_row_fraction": 0.5858550925125368,
+    "n_groups": 2475,
+    "duplicate_rows_removed_from_leakage": 4575,
+    "duplicate_row_fraction": 0.648936170212766,
     "n_splits": 3,
     "largest_group_sizes": [
-      2916,
-      256,
-      80,
-      62,
-      18
+      2712,
+      1380,
+      179,
+      112,
+      47
     ]
   },
-  "leakage_caveat": "CIC CSV lacks src/dst IP and timestamp columns, so this is not a true source- or time-disjoint split -- offline metrics still do NOT prove real-world streaming performance (spec section 25). Metrics ARE from feature-vector-fingerprint GROUP-disjoint cross-validation (StratifiedGroupKFold, all folds evaluated), which removes the measured duplicate-row leakage (58.6% of rows) that a plain random split let leak across train/test. Cross-validating every fold (rather than one split) also revealed that a couple of single flow shapes each span >25% of all rows -- a single split can silo an entire shape out of training by chance; the per-fold spread in cv_metrics reflects that instability honestly instead of hiding it.",
+  "leakage_caveat": "These are PER-FLOW offline metrics from feature-vector-fingerprint GROUP-disjoint cross-validation (StratifiedGroupKFold, all folds evaluated), which keeps duplicate/near-identical scan probes (64.9% of rows here) from leaking across folds. They still do NOT prove streaming performance -- the real test is simulate_live_stream.py replaying a SEPARATE, source-disjoint Docker-captured batch (different attacker/client IPs) through the full behavioural detector. The captured data does carry src/dst IP + timestamp keys, so that source-disjoint streaming evaluation is available; run it and treat its numbers, not these, as the headline. Both are lab-generated traffic, so all figures are an upper bound on real-world performance.",
   "excluded_by_design": {
     "Destination Port": "used as behavioural key, not an ML identity",
     "Flow Duration / */s": "bidirectional semantics",
@@ -42,30 +42,30 @@
   "cv_metrics": {
     "n_folds_evaluated": 3,
     "precision": {
-      "mean": 1.0,
-      "std": 0.0
+      "mean": 0.8589371980676329,
+      "std": 0.19949292763910328
     },
     "recall": {
-      "mean": 1.0,
-      "std": 0.0
+      "mean": 0.9538714991762768,
+      "std": 0.06523555147684786
     },
     "f1": {
-      "mean": 1.0,
-      "std": 0.0
+      "mean": 0.8857604546243275,
+      "std": 0.1131414294665557
     },
     "roc_auc": {
-      "mean": 1.0,
-      "std": 0.0
+      "mean": 0.8779620626883137,
+      "std": 0.12783550267676252
     },
     "pr_auc": {
-      "mean": 1.0,
-      "std": 0.0
+      "mean": 0.8311411268708001,
+      "std": 0.1830319315160764
     },
     "per_fold": [
       {
         "fold": 0,
-        "n_train": 2081,
-        "n_test": 3702,
+        "n_train": 3360,
+        "n_test": 3690,
         "precision": 1.0,
         "recall": 1.0,
         "f1": 1.0,
@@ -74,42 +74,42 @@
       },
       {
         "fold": 1,
-        "n_train": 4741,
-        "n_test": 1042,
-        "precision": 1.0,
+        "n_train": 5276,
+        "n_test": 1774,
+        "precision": 0.5768115942028985,
         "recall": 1.0,
-        "f1": 1.0,
-        "roc_auc": 1.0,
-        "pr_auc": 1.0
+        "f1": 0.7316176470588235,
+        "roc_auc": 0.7014314928425358,
+        "pr_auc": 0.5768115942028985
       },
       {
         "fold": 2,
-        "n_train": 4744,
-        "n_test": 1039,
+        "n_train": 5464,
+        "n_test": 1586,
         "precision": 1.0,
-        "recall": 1.0,
-        "f1": 1.0,
-        "roc_auc": 1.0,
-        "pr_auc": 1.0
+        "recall": 0.8616144975288303,
+        "f1": 0.9256637168141593,
+        "roc_auc": 0.9324546952224053,
+        "pr_auc": 0.9166117864095016
       }
     ]
   },
   "feature_importances": {
-    "Fwd IAT Total": 0.14999999999999797,
-    "Total Fwd Packets": 0.11002880184332055,
-    "Fwd Packet Length Std": 0.09999999999998957,
-    "Fwd Packet Length Max": 0.0899999999999903,
-    "min_seg_size_forward": 0.07999999999999942,
-    "Fwd IAT Std": 0.07999999999999416,
-    "Init_Win_bytes_forward": 0.06999999999999176,
-    "Fwd IAT Max": 0.06000000000000286,
-    "Total Length of Fwd Packets": 0.06000000000000075,
-    "Fwd Packet Length Mean": 0.05999999999999947,
-    "act_data_pkt_fwd": 0.049999999999991954,
-    "Fwd Header Length": 0.04000000000000803,
-    "Fwd PSH Flags": 0.04000000000000082,
-    "Fwd IAT Mean": 0.009971198156693761,
-    "Fwd IAT Min": 1.859179477036986e-14,
+    "min_seg_size_forward": 0.23206659436112942,
+    "Fwd Header Length": 0.1372222422546545,
+    "Init_Win_bytes_forward": 0.13327881212368067,
+    "Fwd IAT Max": 0.12286997273412147,
+    "Total Fwd Packets": 0.11927558204498809,
+    "Fwd IAT Total": 0.0879123658586767,
+    "Fwd IAT Mean": 0.06575625090594311,
+    "Fwd IAT Std": 0.054154484131876936,
+    "Fwd Packet Length Mean": 0.021328307094450334,
+    "Total Length of Fwd Packets": 0.010502668767611344,
+    "Fwd Packet Length Max": 0.005059124371118856,
+    "Fwd Packet Length Std": 0.004497311681404618,
+    "Fwd IAT Min": 0.003285132164454656,
+    "Fwd PSH Flags": 0.0015559321351401765,
+    "act_data_pkt_fwd": 0.0012352193707490218,
     "Fwd Packet Length Min": 0.0,
     "Fwd URG Flags": 0.0
   },
@@ -127,10 +127,10 @@
     "Fwd IAT Min": 0.0,
     "Fwd PSH Flags": 0.0,
     "Fwd URG Flags": 0.0,
-    "Fwd Header Length": 44.0,
-    "Init_Win_bytes_forward": 1024.0,
+    "Fwd Header Length": 60.0,
+    "Init_Win_bytes_forward": 64240.0,
     "act_data_pkt_fwd": 0.0,
-    "min_seg_size_forward": 24.0
+    "min_seg_size_forward": 32.0
   },
   "scan_class_index": 1
 }

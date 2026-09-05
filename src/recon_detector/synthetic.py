@@ -1,10 +1,10 @@
-"""Synthetic strict-one-way flow streams for evaluation and testing.
+"""Synthetic strict-one-way flow streams for unit tests and the ``demo`` CLI.
 
-Because the CIC CSV carries no source IP / timestamp columns (see README
-"Dataset limitation"), source-level behavioural evaluation cannot come from the
-benchmark file.  We instead generate controlled A->B-only streams where we know
-the ground truth.  Every record here is observed-direction only -- there is no
-reverse traffic anywhere in these generators.
+These are controlled A->B-only scenarios (camouflage, evasion, multi-source,
+slow scans) with known ground truth -- behavioural regression fixtures, NOT
+training data. Real train/eval data comes from Docker capture (see
+``portscan-lab/`` and ``simulate_live_stream.py``). Every record here is
+observed-direction only -- there is no reverse traffic in these generators.
 """
 
 from __future__ import annotations

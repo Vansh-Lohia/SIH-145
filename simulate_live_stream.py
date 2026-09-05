@@ -23,8 +23,11 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from recon_detector.detector import DetectorConfig, ReconDetector
-from recon_detector.schemas import DetectionResult, FlowRecord
+# Make the src-layout package importable when run directly (no PYTHONPATH needed).
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+
+from recon_detector.detector import DetectorConfig, ReconDetector  # noqa: E402
+from recon_detector.schemas import DetectionResult, FlowRecord  # noqa: E402
 
 
 def run_stream_simulation(
