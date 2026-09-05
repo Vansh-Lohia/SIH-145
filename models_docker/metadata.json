@@ -1,32 +1,32 @@
 {
   "dataset": "portscan-lab/train_docker.csv",
-  "trained_at": "2026-09-05T01:56:51.885738+00:00",
+  "trained_at": "2026-09-05T02:53:05.991598+00:00",
   "test_size": 0.3,
   "label_info": {
-    "n_rows": 7050,
+    "n_rows": 8841,
     "label_column": "Label",
     "label_counts": {
-      "PortScan": 4115,
-      "BENIGN": 2935
+      "BENIGN": 4696,
+      "PortScan": 4145
     },
-    "positive_rate": 0.5836879432624114,
+    "positive_rate": 0.4688383667005995,
     "columns_total": 24
   },
   "split_info": {
     "method": "StratifiedGroupKFold cross-validation on feature-vector fingerprint groups",
-    "n_groups": 2475,
-    "duplicate_rows_removed_from_leakage": 4575,
-    "duplicate_row_fraction": 0.648936170212766,
+    "n_groups": 2863,
+    "duplicate_rows_removed_from_leakage": 5978,
+    "duplicate_row_fraction": 0.6761678543151227,
     "n_splits": 3,
     "largest_group_sizes": [
-      2712,
-      1380,
-      179,
-      112,
-      47
+      2760,
+      2733,
+      184,
+      146,
+      50
     ]
   },
-  "leakage_caveat": "These are PER-FLOW offline metrics from feature-vector-fingerprint GROUP-disjoint cross-validation (StratifiedGroupKFold, all folds evaluated), which keeps duplicate/near-identical scan probes (64.9% of rows here) from leaking across folds. They still do NOT prove streaming performance -- the real test is simulate_live_stream.py replaying a SEPARATE, source-disjoint Docker-captured batch (different attacker/client IPs) through the full behavioural detector. The captured data does carry src/dst IP + timestamp keys, so that source-disjoint streaming evaluation is available; run it and treat its numbers, not these, as the headline. Both are lab-generated traffic, so all figures are an upper bound on real-world performance.",
+  "leakage_caveat": "These are PER-FLOW offline metrics from feature-vector-fingerprint GROUP-disjoint cross-validation (StratifiedGroupKFold, all folds evaluated), which keeps duplicate/near-identical scan probes (67.6% of rows here) from leaking across folds. They still do NOT prove streaming performance -- the real test is simulate_live_stream.py replaying a SEPARATE, source-disjoint Docker-captured batch (different attacker/client IPs) through the full behavioural detector. The captured data does carry src/dst IP + timestamp keys, so that source-disjoint streaming evaluation is available; run it and treat its numbers, not these, as the headline. Both are lab-generated traffic, so all figures are an upper bound on real-world performance.",
   "excluded_by_design": {
     "Destination Port": "used as behavioural key, not an ML identity",
     "Flow Duration / */s": "bidirectional semantics",
@@ -42,30 +42,30 @@
   "cv_metrics": {
     "n_folds_evaluated": 3,
     "precision": {
-      "mean": 0.8589371980676329,
-      "std": 0.19949292763910328
+      "mean": 0.7628019323671498,
+      "std": 0.3354487242150675
     },
     "recall": {
-      "mean": 0.9538714991762768,
-      "std": 0.06523555147684786
+      "mean": 0.9545454545454546,
+      "std": 0.06428243465332249
     },
     "f1": {
-      "mean": 0.8857604546243275,
-      "std": 0.1131414294665557
+      "mean": 0.7915077688459674,
+      "std": 0.24494135353433602
     },
     "roc_auc": {
-      "mean": 0.8779620626883137,
-      "std": 0.12783550267676252
+      "mean": 0.81140177545972,
+      "std": 0.2218265600100187
     },
     "pr_auc": {
-      "mean": 0.8311411268708001,
-      "std": 0.1830319315160764
+      "mean": 0.7325522524695826,
+      "std": 0.3162366228141461
     },
     "per_fold": [
       {
         "fold": 0,
-        "n_train": 3360,
-        "n_test": 3690,
+        "n_train": 4748,
+        "n_test": 4093,
         "precision": 1.0,
         "recall": 1.0,
         "f1": 1.0,
@@ -74,42 +74,42 @@
       },
       {
         "fold": 1,
-        "n_train": 5276,
-        "n_test": 1774,
-        "precision": 0.5768115942028985,
+        "n_train": 6081,
+        "n_test": 2760,
+        "precision": 0.28840579710144926,
         "recall": 1.0,
-        "f1": 0.7316176470588235,
-        "roc_auc": 0.7014314928425358,
-        "pr_auc": 0.5768115942028985
+        "f1": 0.44769403824521936,
+        "roc_auc": 0.5,
+        "pr_auc": 0.28840579710144926
       },
       {
         "fold": 2,
-        "n_train": 5464,
-        "n_test": 1586,
+        "n_train": 6853,
+        "n_test": 1988,
         "precision": 1.0,
-        "recall": 0.8616144975288303,
-        "f1": 0.9256637168141593,
-        "roc_auc": 0.9324546952224053,
-        "pr_auc": 0.9166117864095016
+        "recall": 0.8636363636363636,
+        "f1": 0.926829268292683,
+        "roc_auc": 0.9342053263791601,
+        "pr_auc": 0.9092509603072984
       }
     ]
   },
   "feature_importances": {
-    "min_seg_size_forward": 0.23206659436112942,
-    "Fwd Header Length": 0.1372222422546545,
-    "Init_Win_bytes_forward": 0.13327881212368067,
-    "Fwd IAT Max": 0.12286997273412147,
-    "Total Fwd Packets": 0.11927558204498809,
-    "Fwd IAT Total": 0.0879123658586767,
-    "Fwd IAT Mean": 0.06575625090594311,
-    "Fwd IAT Std": 0.054154484131876936,
-    "Fwd Packet Length Mean": 0.021328307094450334,
-    "Total Length of Fwd Packets": 0.010502668767611344,
-    "Fwd Packet Length Max": 0.005059124371118856,
-    "Fwd Packet Length Std": 0.004497311681404618,
-    "Fwd IAT Min": 0.003285132164454656,
-    "Fwd PSH Flags": 0.0015559321351401765,
-    "act_data_pkt_fwd": 0.0012352193707490218,
+    "min_seg_size_forward": 0.3531643592408403,
+    "Init_Win_bytes_forward": 0.17920584369964612,
+    "Fwd Header Length": 0.11948757009855018,
+    "Total Fwd Packets": 0.07906755048868547,
+    "Fwd IAT Total": 0.07238915020474655,
+    "Fwd IAT Max": 0.056441552476322966,
+    "Fwd IAT Mean": 0.04333446236326291,
+    "Fwd IAT Std": 0.03737852182128621,
+    "Fwd Packet Length Mean": 0.022880706163476622,
+    "Total Length of Fwd Packets": 0.011714218611175869,
+    "Fwd Packet Length Max": 0.009459369117278665,
+    "Fwd IAT Min": 0.0076565579309344715,
+    "Fwd Packet Length Std": 0.00710072397415233,
+    "act_data_pkt_fwd": 0.00040574284121213576,
+    "Fwd PSH Flags": 0.0003136709684293136,
     "Fwd Packet Length Min": 0.0,
     "Fwd URG Flags": 0.0
   },

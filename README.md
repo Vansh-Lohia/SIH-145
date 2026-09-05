@@ -180,20 +180,39 @@ feature ever appears in the approved list or a saved model.
 
 Training and evaluation data are **generated as real packets** in a small Docker
 lab (attacker + victim on a bridge network), not from a static third-party CSV.
-`portscan-lab/capture_batch.sh` drives an attacker container to emit benign
-traffic (varied-size client sessions + legitimate high-fan-out monitoring) and
-four scan types (vertical, horizontal, mixed, slow) with nmap, captured with
-tcpdump. `portscan-lab/pcap_to_cic.py` extracts the **17 approved forward-only
-CIC features** straight from the packets, keeping `src_ip`/`dst_ip`/`dst_port`/
-`timestamp`, and `portscan-lab/build_batch.py` drops the victims' reverse
-replies so the dataset is **strictly one-way** (client → server only).
+`portscan-lab/capture_batch.sh` drives an attacker container to emit the traffic
+below, captured with tcpdump. `portscan-lab/pcap_to_cic.py` extracts the **17
+approved forward-only CIC features** straight from the packets, keeping
+`src_ip`/`dst_ip`/`dst_port`/`timestamp`, and `portscan-lab/build_batch.py`
+drops the victims' reverse replies so the dataset is **strictly one-way**
+(client → server only).
+
+**The classes deliberately overlap in per-flow feature space**, so no single
+flow feature can separate them — only behavioural fan-out can. Benign traffic
+therefore includes **empty 0-byte flows** (failed connections to closed ports,
+connect-then-close health checks) that are byte-identical to scan probes, and
+scans include **payload-carrying flows** (`nmap -sV` service probes). Two
+deliberate edge profiles narrow the fan-out gap from both sides to stress the
+behavioural layer:
+
+- **Chatty benign** (`Scan_Type=chatty`) — a monitoring/orchestration node that
+  legitimately touches ~25 ports across several hosts (high fan-out). Stresses
+  the **false-positive** rate: raw fan-out looks scan-like, so only the scan-like
+  gating can keep it quiet. *Measured: 1,800 chatty flows → **0 false positives**
+  (FPR 0.00%)* — the anti-camouflage gating holds under high-fan-out benign.
+- **Stealth scan** (`Scan_Type=stealth`) — a scanner probing only ~10 ports,
+  slowly, so its fan-out approaches a benign client's. Stresses **recall**: it
+  sits near the detection floor. *Measured: only **~10% detected*** — most stealth
+  scanners slip under, the honest lower boundary of fan-out-based detection
+  (catching them means lowering the gate, which costs false positives). This is
+  a tunable trade-off; the shipped config prioritises FPR = 0.
 
 Two batches are captured with **disjoint source-IP ranges**, giving a true
 **source-disjoint** train/eval split — the split CIC-IDS-2017 could never
-provide because it has no source/timestamp columns. A third `hard` batch (slow
-`-T2` timing + nmap decoys) probes generalization to different scan timing and
-evasion. Because we control capture, the data carries real `src_ip`/`timestamp`
-keys, so source-level behavioural evaluation is possible.
+provide because it has no source/timestamp columns. An optional `hard` profile
+(slow `-T2` timing + nmap decoys) probes generalization to different scan
+timing and evasion. Because we control capture, the data carries real
+`src_ip`/`timestamp` keys, so source-level behavioural evaluation is possible.
 
 ## 16. Training (`training/train.py`)
 

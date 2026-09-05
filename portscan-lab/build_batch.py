@@ -18,12 +18,14 @@ VICTIM_HOSTS = {"10.10.10.3"} | {f"10.10.10.{i}" for i in range(10, 41)}
 # pcap basename -> (Label, Scan_Type)
 MAP = {
     "benign":          ("BENIGN",   "benign"),
+    "benign_chatty":   ("BENIGN",   "chatty"),     # high-fan-out benign (FP stress)
     "scan_vertical":   ("PortScan", "vertical"),
     "scan_connect":    ("PortScan", "vertical"),   # -sT connect scan (vertical pattern)
     "scan_service":    ("PortScan", "vertical"),   # -sV version scan (vertical pattern)
     "scan_horizontal": ("PortScan", "horizontal"),
     "scan_mixed":      ("PortScan", "mixed"),
     "scan_slow":       ("PortScan", "slow"),
+    "scan_stealth":    ("PortScan", "stealth"),    # low-fan-out scan (recall stress)
 }
 
 

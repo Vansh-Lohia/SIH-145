@@ -63,20 +63,12 @@ def run_stream_simulation(
     tn = 0
     fn = 0
 
-    category_counts = {
-        "benign": 0,
-        "vertical": 0,
-        "horizontal": 0,
-        "slow": 0,
-        "mixed": 0,
-    }
-    category_detected = {
-        "benign": 0,  # False positives
-        "vertical": 0,
-        "horizontal": 0,
-        "slow": 0,
-        "mixed": 0,
-    }
+    # Per-category tallies are built dynamically from the data so new traffic
+    # profiles (e.g. "stealth" scans, "chatty" benign) are reported automatically
+    # without editing this file. Each scan_type maps to whether it is a scan.
+    category_counts: Dict[str, int] = {}
+    category_detected: Dict[str, int] = {}   # for scans: TPs; for benign: FPs
+    category_is_scan: Dict[str, bool] = {}
 
     start_wall = time.time()
     last_expire = None
@@ -85,7 +77,10 @@ def run_stream_simulation(
         # Extract ground truth (hidden from detector)
         true_label = row.get("Label", "BENIGN")
         true_scan_type = row.get("Scan_Type", "benign").lower()
+        is_scan = (true_label.lower() in ["portscan", "scan"])
         category_counts[true_scan_type] = category_counts.get(true_scan_type, 0) + 1
+        category_detected.setdefault(true_scan_type, 0)
+        category_is_scan[true_scan_type] = is_scan
 
         # Strip ground truth before feeding into the detector
         input_record = {
@@ -111,15 +106,13 @@ def run_stream_simulation(
             last_expire = res.timestamp
 
         # Evaluate detection against ground truth
-        is_scan = (true_label.lower() in ["portscan", "scan"])
-
         if res.detected:
             if is_scan:
                 tp += 1
                 category_detected[true_scan_type] += 1
             else:
                 fp += 1
-                category_detected["benign"] += 1
+                category_detected[true_scan_type] += 1  # benign subtype false positive
             
             if show_alerts and (fp <= 10 or tp <= 25 or i % 500 == 0):
                 status_icon = "⚠️  [ALERT]" if is_scan else "❌ [FALSE ALARM]"
@@ -161,17 +154,26 @@ def run_stream_simulation(
     print(f"   False Positives (Benign Flagged):     {fp:5d}")
     print(f"   False Negatives (Scans Missed):       {fn:5d}")
     print("-" * 70)
-    print("3. DETAILED DETECTION BREAKDOWN BY SCAN TYPE:")
-    for cat in ["vertical", "horizontal", "slow", "mixed"]:
-        total_cat = category_counts[cat]
-        det_cat = category_detected[cat]
+    print("3. DETECTION BREAKDOWN BY SCAN TYPE (recall):")
+    scan_types = sorted(c for c, s in category_is_scan.items() if s)
+    for cat in scan_types:
+        total_cat = category_counts.get(cat, 0)
+        det_cat = category_detected.get(cat, 0)
         rate = (det_cat / total_cat * 100) if total_cat > 0 else 0.0
         print(f"   - {cat.capitalize():12s} Scans: {det_cat:5d} / {total_cat:5d} detected ({rate:6.2f}%)")
 
-    b_total = category_counts["benign"]
-    b_fp = category_detected["benign"]
-    fpr = (b_fp / b_total * 100) if b_total > 0 else 0.0
-    print(f"   - Benign Traffic:      {b_total - b_fp:5d} / {b_total:5d} passed without alarm (FPR: {fpr:4.2f}%)")
+    print("-" * 70)
+    print("4. BENIGN BREAKDOWN BY TYPE (false-positive rate):")
+    benign_types = sorted(c for c, s in category_is_scan.items() if not s)
+    tot_benign = tot_benign_fp = 0
+    for cat in benign_types:
+        b_total = category_counts.get(cat, 0)
+        b_fp = category_detected.get(cat, 0)
+        tot_benign += b_total; tot_benign_fp += b_fp
+        fpr_cat = (b_fp / b_total * 100) if b_total > 0 else 0.0
+        print(f"   - {cat.capitalize():12s}     : {b_total - b_fp:5d} / {b_total:5d} passed clean (FPR: {fpr_cat:5.2f}%)")
+    overall_fpr = (tot_benign_fp / tot_benign * 100) if tot_benign > 0 else 0.0
+    print(f"   - {'ALL BENIGN':12s}     : {tot_benign - tot_benign_fp:5d} / {tot_benign:5d} passed clean (FPR: {overall_fpr:5.2f}%)")
     print("=" * 70)
 
     return {
