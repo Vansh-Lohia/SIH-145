@@ -333,16 +333,79 @@ family `lumma_stealer`, environment `mta-net-2025`) so this test is reproducible
 `tests/test_modern_malware_generalization.py` asserts AUC, not a raw-score cutoff, to avoid
 repeating the mistake above.
 
+### Bug found and fixed: unseen JA4 fingerprints inherited the dataset's class imbalance
+
+Environment: local training moved to WSL after Windows Smart App Control started blocking
+LightGBM's native DLL on the host (`[WinError 4551]`) — not fixable by disabling the policy
+(irreversible without a Windows reinstall once enabled), so the ML side now runs from WSL,
+same as the Zeek pipeline. Deps installed with `pip install --user --break-system-packages`
+(PEP 668; low-risk, user-local, common workaround). All 28 tests confirmed passing there.
+
+While adding a second modern-malware source (see below), a real bug surfaced. Investigated
+with the same discipline as the earlier naive-threshold mistake — verify with actual scores,
+don't trust a single summary number:
+
+1. Added `remcos-2025-03-10` (malware-traffic-analysis.net) as a candidate third malware
+   family. Its actual C2 (`206.123.152.51:3980`) turned out to be **raw TCP, not TLS** — out
+   of scope for a TLS/QUIC-metadata detector (that traffic belongs to a teammate's Botnet-C2
+   detector instead). Rather than discard the download, its ~93 *other* TLS sessions are the
+   infected host's own legitimate browsing (banking, social media, ad networks) — labelled
+   `benign`, a third, diverse, 2025-era real benign source distinct from both 2017 CTU-Normal
+   and the narrow curl-only `live-wsl-2026` sample.
+2. Adding that benign data changed the picture: `LOFO:lumma_stealer` dropped from
+   TPR@0.1%FPR=1.0000 to 0.0000. Investigated rather than accepted at face value — the
+   top false positive was a real `ctu-normal-28` benign session scoring 0.9999 malicious.
+3. Root cause, confirmed precisely: that session's exact JA4 fingerprint never appeared in
+   training. `Ja4TargetEncoder.transform()` fell back to `self.prior` for unseen hashes —
+   the training set's raw malicious fraction, **0.93**, itself just an artifact of
+   downloading far more malicious than benign captures (real traffic is the opposite, ~99.9%
+   benign — CLAUDE.md §7 rule 4). So any unfamiliar fingerprint at all, benign or malicious,
+   was being scored "93% likely malicious" by one feature alone, before any other evidence.
+4. **Fixed** in `src/encdetect/models/baseline_lgbm.py`: separated the encoder's two roles —
+   `prior` still smooths a hash seen a FEW times in training toward the dataset rate
+   (standard target-encoding practice, unchanged); a new `unseen_value` (default 0.5, neutral)
+   is used only for hashes with ZERO training observations. Regression tests added in
+   `tests/test_baseline_model.py` (31 tests total pass).
+
+**Effect on the headline numbers — a more honest picture, not a uniformly better one:**
+
+| held-out family | TPR@0.1%FPR (before fix) | TPR@0.1%FPR (after fix) | AUC (after fix) |
+|---|---|---|---|
+| dridex | 1.0000 | 0.0000 | **0.9425** |
+| emotet | 1.0000 | 1.0000 | 1.0000 |
+| trickbot | 1.0000 | 1.0000 | 1.0000 |
+| lumma_stealer | 1.0000 | 0.0000 | **0.6360** |
+
+Checked *why* TPR@0.1%FPR still reads 0 for dridex despite AUC=0.94: the malicious scores
+cluster extremely tightly (9.5e-7 to 2.1e-6 across all 5,735 sessions — the model is very
+consistent), but with only ~2,700 benign sessions in this fold's test set, the 0.1%-FPR
+threshold is set by literally the 2nd-or-3rd-highest benign score. A couple of unusual
+`ctu-normal-28` sessions scoring marginally higher than the entire tight malicious cluster
+is enough to zero out the metric, even though the overall ranking (AUC) is strong. This is a
+**data-volume fragility**, not a sign the model can't separate the classes — but it does mean
+the previously-reported "1.0000 across the board" was flattering: the fixed encoder bug was
+propping up part of it, and the strict TPR@low-FPR metric is genuinely sensitive to our still-
+thin benign volume. **AUC, not TPR@0.1%FPR, is currently the more informative number to trust
+family-by-family** until benign volume grows enough for the low-FPR threshold to stabilize.
+
+`lumma_stealer`'s AUC=0.636 (unchanged by this fix) remains the most honest signal in the
+table — modern-malware generalization is real (better than chance) but weaker than the
+old-era families' ranking ability, consistent with n=10 from one campaign being too little
+to draw a firm conclusion from.
+
 ### Next steps toward a trustworthy real number
 
-1. Add more modern (TLS 1.3) malware families/campaigns to test whether the AUC=1.0 result
-   holds up across more than one C2 infrastructure — n=10 from a single campaign is not
-   enough to generalize the "shape/timing transfers" conclusion with confidence.
-2. Install `tcpreplay` and replay a malware pcap onto the same live interface as a benign
+1. **Grow real benign volume specifically** — the dridex/lumma TPR@0.1%FPR fragility above is
+   a direct, evidenced consequence of having too few benign sessions for a stable low-FPR
+   threshold. This is now the best-supported next step, not just a general "more data" wish.
+2. Add more modern (TLS 1.3) malware families/campaigns to test whether AUC=0.636-1.0 for
+   `lumma_stealer` was representative — n=10 from a single campaign is not enough to
+   generalize the "shape/timing transfers" conclusion with confidence.
+3. Install `tcpreplay` and replay a malware pcap onto the same live interface as a benign
    capture, so TLS-version/era and network-stack artifacts are controlled for directly.
-3. Add more malware families (both eras) so leave-one-family-out isn't estimated from n=3-4.
-4. Test against a C2 sample deliberately tuned to mimic browser-like shape/timing (the
+4. Add more malware families (both eras) so leave-one-family-out isn't estimated from n=3-4.
+5. Test against a C2 sample deliberately tuned to mimic browser-like shape/timing (the
    synthetic `cobaltstrike`/`quicc2` families model this) — the real adversarial case shape
    features alone can't be expected to catch.
-5. Investigate why FoxIO couldn't compute JA4 for the Emotet capture — is it truncation in
+6. Investigate why FoxIO couldn't compute JA4 for the Emotet capture — is it truncation in
    the CTU pcap, or a genuinely minimal ClientHello worth featurizing on its own?

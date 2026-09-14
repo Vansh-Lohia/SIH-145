@@ -19,9 +19,29 @@ from ..features.session import FeatureBundle, TABULAR_FEATURE_NAMES
 
 @dataclass
 class Ja4TargetEncoder:
-    """Smoothed target encoding of the JA4 hash (fit on TRAIN only, to avoid leakage)."""
+    """Smoothed target encoding of the JA4 hash (fit on TRAIN only, to avoid leakage).
+
+    Two DIFFERENT roles are deliberately kept separate here:
+
+    - `prior` smooths a hash that WAS observed in training but only a few times — pulling a
+      rarely-seen hash's rate toward the training set's overall malicious rate is standard
+      target-encoding practice and stays as-is.
+    - `unseen_value` is what a hash gets at transform time if it was NEVER observed in
+      training at all. Using `prior` for this (the original behaviour) is a real bug, found
+      2026-09-14 while investigating a false positive: our real corpus is dataset-imbalanced
+      toward malicious (three large CTU malware captures dominate a much smaller benign
+      volume — an artifact of what we happened to download, not true prevalence, which
+      CLAUDE.md §7 rule 4 notes is the opposite: ~99.9% benign in reality). With the old
+      fallback, `prior` was ~0.93, so ANY unfamiliar fingerprint — malicious or perfectly
+      innocent — was scored "93% likely malicious" by this one feature alone, before any
+      other evidence. A real benign CTU-Normal-28 session with a fingerprint absent from
+      training scored 0.9999 malicious for exactly this reason. `unseen_value` defaults to
+      0.5 (no information) instead, so an unfamiliar fingerprint no longer smuggles in the
+      dataset's class imbalance as if it were evidence.
+    """
     prior: float = 0.0
     smoothing: float = 10.0
+    unseen_value: float = 0.5
     table: dict[str, float] = field(default_factory=dict)
 
     def fit(self, ja4s: list[str], y: np.ndarray) -> "Ja4TargetEncoder":
@@ -39,7 +59,7 @@ class Ja4TargetEncoder:
         return self
 
     def transform(self, ja4s: list[str]) -> np.ndarray:
-        return np.array([self.table.get(h, self.prior) for h in ja4s], dtype=float)
+        return np.array([self.table.get(h, self.unseen_value) for h in ja4s], dtype=float)
 
 
 class LgbmBaseline:

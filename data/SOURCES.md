@@ -70,9 +70,12 @@ what it does and doesn't tell us.
 ## Modern malware — malware-traffic-analysis.net
 
 Unlike CTU (2011-2018 era), this site publishes recent real-world infection captures. Used
-to test whether the detector generalizes to modern TLS 1.3 malware — it does not (see
-`docs/evaluation.md`, "The environment-confound theory is now CONFIRMED"). Zip password
-scheme (from the site's about page): `infected_YYYYMMDD` (the post's date).
+to test whether the detector generalizes to modern TLS 1.3 malware — it does, at least for
+this one campaign (AUC=1.0000, driven by shape/timing not just TLS era). See
+`docs/evaluation.md`, "Correction: the model DOES rank modern malware above benign", and
+the caveat there that n=10 from a single campaign isn't enough to call this settled — more
+modern families are needed to confirm it holds up. Zip password scheme (from the site's
+about page): `infected_YYYYMMDD` (the post's date).
 
 | local name | source | pcap size | TLS sessions | notes |
 |---|---|---|---|---|
@@ -83,6 +86,27 @@ curl -o data/pcaps/lumma-2025-08-15.pcap.zip \
   https://www.malware-traffic-analysis.net/2025/08/15/2025-08-15-Lumma-Stealer-infection-with-Sectop-RAT.pcap.zip
 python3 -c "import zipfile; zipfile.ZipFile('data/pcaps/lumma-2025-08-15.pcap.zip').extractall('data/pcaps', pwd=b'infected_20250815')"
 bash scripts/run_zeek.sh data/pcaps/lumma-2025-08-15.pcap data/zeek_logs/lumma-2025-08-15
+```
+
+### A scoping finding: not every modern malware sample is usable here
+
+Downloaded `remcos-2025-03-10` (malware-traffic-analysis.net, 2025-03-10, Remcos RAT) as a
+second modern-malware candidate. Its actual C2 (`206.123.152.51:3980`) is **raw TCP, not
+TLS-wrapped** — never appears in `ssl.log`, only in `conn.log` with `service` unset. That
+traffic is out of scope for a TLS/QUIC-metadata detector by definition (the problem
+statement's other "Botnet C2" detector, built by a teammate, is the right home for it).
+
+Rather than discard the download, the pcap's ~93 *other* TLS sessions — the infected host's
+own legitimate browsing (banking, social media, ad networks, OS telemetry) — are labelled
+`benign`, `environment: mta-net-2025`. This gives a third, diverse, **2025-era** real benign
+source, distinct from both the 2017 CTU-Normal captures and the narrow curl-only
+`live-wsl-2026` sample; see `data/labels/remcos-2025-03-10.jsonl`.
+
+```bash
+curl -o data/pcaps/remcos-2025-03-10.pcap.zip \
+  https://www.malware-traffic-analysis.net/2025/03/10/2025-03-10-Remcos-RAT-infection-traffic.pcap.zip
+python3 -c "import zipfile; zipfile.ZipFile('data/pcaps/remcos-2025-03-10.pcap.zip').extractall('data/pcaps', pwd=b'infected_20250310')"
+bash scripts/run_zeek.sh data/pcaps/remcos-2025-03-10.pcap data/zeek_logs/remcos-2025-03-10
 ```
 
 ## Benign — live, self-captured (real, not downloaded)
