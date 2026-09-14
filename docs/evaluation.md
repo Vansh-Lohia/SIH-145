@@ -393,19 +393,62 @@ table — modern-malware generalization is real (better than chance) but weaker 
 old-era families' ranking ability, consistent with n=10 from one campaign being too little
 to draw a firm conclusion from.
 
+### Growing benign volume — the predicted fix, confirmed
+
+Acted directly on the "grow real benign volume" priority above rather than leaving it as a
+suggestion. Two additions:
+
+1. A longer live capture (`live-benign-wsl-2`, 5 minutes vs. the original 2, via the same
+   `scripts/capture_live_benign.sh`) — 525 more real TLS 1.3 sessions, `environment:
+   live-wsl-2026`.
+2. A second new modern-malware source, `netsupport-stealc-2025-08-20`
+   (malware-traffic-analysis.net, "SmartApeSG → ClickFix → NetSupport RAT → StealC v2").
+   Only 6 of its sessions are TLS — all sharing one JA4, to small/odd-looking domains
+   (`dieselfilters.com`, `islonline.org`, `woop-bicks.com`, `cf-2-up.com`) that read like
+   compromised small-business sites, consistent with SmartApeSG's documented technique of
+   injecting redirect scripts into real legitimate sites rather than registering obviously
+   malicious domains. Labelled `malicious`, family `smartapesg` — this is the TDS/delivery
+   layer specifically; NetSupport RAT's own C2 in this capture is plain HTTP (`http.log`, not
+   `ssl.log`), out of scope here for the same reason Remcos's raw-TCP C2 was.
+
+**Result — every family's AUC improved or stayed perfect:**
+
+| held-out | AUC before | AUC after | n malicious | n benign (test) |
+|---|---|---|---|---|
+| dridex | 0.9425 | **1.0000** | 5,735 | 1,939 |
+| emotet | 1.0000 | 1.0000 | 14,060 | 1,939 |
+| trickbot | 1.0000 | 1.0000 | 2,570 | 1,939 |
+| lumma_stealer | 0.6360 | **0.9903** | 10 | 1,939 |
+| smartapesg (new) | — | 0.7059 | 6 | 1,939 |
+
+**`lumma_stealer` jumping from AUC 0.636 to 0.9903 is the single most important result of
+this pass.** It directly confirms the "data-volume fragility" diagnosis from the previous
+section wasn't a hedge — the weak modern-malware generalization signal really was mostly an
+artifact of too little, too narrow benign data, not a fundamental limit of the shape/timing
+approach. With more (and more diverse) real benign traffic to rank against, the same
+never-trained-on 2025 malware family is now caught with 90% recall / 90% precision at the
+strict 0.1%-FPR threshold — a real, usable number, not just a favourable AUC.
+
+`smartapesg` at AUC=0.7059 (n=6) is the new weakest point, but for an unsurprising reason: it
+is a genuinely different kind of malicious traffic (redirect/delivery infrastructure using
+compromised legitimate sites, not C2 beaconing) that nothing else in training resembles, and
+n=6 makes this a very noisy estimate either way. Worth watching as more delivery-layer
+samples are added, not yet worth reading much into on its own.
+
 ### Next steps toward a trustworthy real number
 
-1. **Grow real benign volume specifically** — the dridex/lumma TPR@0.1%FPR fragility above is
-   a direct, evidenced consequence of having too few benign sessions for a stable low-FPR
-   threshold. This is now the best-supported next step, not just a general "more data" wish.
-2. Add more modern (TLS 1.3) malware families/campaigns to test whether AUC=0.636-1.0 for
-   `lumma_stealer` was representative — n=10 from a single campaign is not enough to
-   generalize the "shape/timing transfers" conclusion with confidence.
-3. Install `tcpreplay` and replay a malware pcap onto the same live interface as a benign
+1. Continue growing real benign volume — it has now twice been the highest-leverage fix
+   available (first for the low-FPR threshold fragility, now for modern-malware AUC).
+2. Add more samples of delivery/redirect-layer traffic (like `smartapesg`) specifically —
+   it's a structurally different malicious pattern from C2 beaconing and the weakest point
+   in the current results, but n=6 is too little to say more than "watch this."
+3. Add more modern (TLS 1.3) malware families/campaigns beyond Lumma and SmartApeSG to keep
+   testing whether the strong AUC results generalize further, not just to these two.
+4. Install `tcpreplay` and replay a malware pcap onto the same live interface as a benign
    capture, so TLS-version/era and network-stack artifacts are controlled for directly.
-4. Add more malware families (both eras) so leave-one-family-out isn't estimated from n=3-4.
-5. Test against a C2 sample deliberately tuned to mimic browser-like shape/timing (the
+5. Add more old-era malware families so leave-one-family-out isn't estimated from n=3-5.
+6. Test against a C2 sample deliberately tuned to mimic browser-like shape/timing (the
    synthetic `cobaltstrike`/`quicc2` families model this) — the real adversarial case shape
    features alone can't be expected to catch.
-6. Investigate why FoxIO couldn't compute JA4 for the Emotet capture — is it truncation in
+7. Investigate why FoxIO couldn't compute JA4 for the Emotet capture — is it truncation in
    the CTU pcap, or a genuinely minimal ClientHello worth featurizing on its own?

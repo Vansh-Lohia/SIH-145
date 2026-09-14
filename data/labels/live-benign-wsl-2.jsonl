@@ -1,0 +1,1 @@
+{"pcap": "live-benign-wsl-2.pcap", "label": "benign", "family": "", "environment": "live-wsl-2026", "src_ip": "", "dst_ip": "", "start_ts": 0, "end_ts": 0}

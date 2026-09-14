@@ -1,0 +1,1 @@
+{"pcap": "netsupport-stealc-2025-08-20.pcap", "label": "malicious", "family": "smartapesg", "environment": "mta-net-2025", "src_ip": "", "dst_ip": "", "start_ts": 0, "end_ts": 0}
