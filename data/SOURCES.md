@@ -80,6 +80,7 @@ about page): `infected_YYYYMMDD` (the post's date).
 | local name | source | pcap size | TLS sessions | notes |
 |---|---|---|---|---|
 | `lumma-2025-08-15` | malware-traffic-analysis.net, 2025-08-15 | ~23 MB | 10 (all TLS 1.3) | Lumma Stealer + SectopRAT/Arechclient2; C2 to `vishneviyjazz.ru` + `desk-app-now.com`; JA4 `t13d201200_2b729b4bf6f3_e24568c0d440` |
+| `netsupport-stealc-2025-08-20` | malware-traffic-analysis.net, 2025-08-20 | ~60 MB | 6 (all TLS 1.2) | SmartApeSG → ClickFix → NetSupport RAT → StealC v2; only the SmartApeSG redirect/delivery layer is TLS (JA4 `t12d180700_4b22cbed5bed_2dae41c691ec`, to compromised-looking small-business domains); NetSupport RAT's own C2 here is plain HTTP, out of scope — labelled family `smartapesg` |
 
 ```bash
 curl -o data/pcaps/lumma-2025-08-15.pcap.zip \
@@ -123,13 +124,16 @@ bash scripts/run_zeek.sh data/pcaps/live-benign-wsl.pcap data/zeek_logs/live-ben
 
 | local name | source | pcap size | TLS sessions |
 |---|---|---|---|
-| `live-benign-wsl` | live capture, this host, 2026 | ~12 MB | 237 (all TLS 1.3) |
+| `live-benign-wsl` | live capture, this host, 2026, 2 min | ~12 MB | 237 (all TLS 1.3) |
+| `live-benign-wsl-2` | live capture, this host, 2026, 5 min | ~41 MB | 525 (all TLS 1.3) |
 
-Labelled `environment: live-wsl-2026` (see `docs/evaluation.md` for the diagnostic this
-enabled: testing malicious-vs-non-browser-benign separation, which weakened but did not
-eliminate the environment-confound concern). Remaining step: install `tcpreplay` and replay
-a malware pcap through this same live interface to control for TLS-era/network-stack
-artifacts directly.
+Both labelled `environment: live-wsl-2026`. Growing this volume directly and measurably
+improved every family's AUC in the real-data eval, most dramatically `lumma_stealer`
+(0.64 → 0.99) — see `docs/evaluation.md`, "Growing benign volume — the predicted fix,
+confirmed". More of this (longer captures, a wider site list) remains the single
+highest-leverage next step. Remaining step for the environment confound specifically:
+install `tcpreplay` and replay a malware pcap through this same live interface to control
+for TLS-era/network-stack artifacts directly.
 
 ## Labels
 
