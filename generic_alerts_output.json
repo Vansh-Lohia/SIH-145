@@ -1,0 +1,236 @@
+[
+  {
+    "flow_id": "10.0.0.5-GENERIC-w0",
+    "threat_class": "generic_volumetric_spoofed",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "packet_rate_per_sec": 13.0,
+      "fan_in": 2,
+      "max_source_share": 0.5385,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0
+    }
+  },
+  {
+    "flow_id": "10.0.0.5-GENERIC-w1",
+    "threat_class": "generic_volumetric_spoofed",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "packet_rate_per_sec": 13.0,
+      "fan_in": 2,
+      "max_source_share": 0.5385,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0
+    }
+  },
+  {
+    "flow_id": "10.0.0.5-GENERIC-w2",
+    "threat_class": "generic_volumetric_spoofed",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "packet_rate_per_sec": 13.0,
+      "fan_in": 2,
+      "max_source_share": 0.5385,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0
+    }
+  },
+  {
+    "flow_id": "10.0.0.5-GENERIC-w3",
+    "threat_class": "generic_volumetric_spoofed",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "packet_rate_per_sec": 13.0,
+      "fan_in": 2,
+      "max_source_share": 0.5385,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0
+    }
+  },
+  {
+    "flow_id": "10.0.0.5-GENERIC-w4",
+    "threat_class": "generic_volumetric_spoofed",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "packet_rate_per_sec": 13.0,
+      "fan_in": 2,
+      "max_source_share": 0.5385,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0
+    }
+  },
+  {
+    "flow_id": "10.0.0.5-GENERIC-w5",
+    "threat_class": "generic_volumetric_spoofed",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "packet_rate_per_sec": 13.0,
+      "fan_in": 2,
+      "max_source_share": 0.5385,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0
+    }
+  },
+  {
+    "flow_id": "10.0.0.5-GENERIC-w6",
+    "threat_class": "generic_volumetric_spoofed",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "packet_rate_per_sec": 12.0,
+      "fan_in": 2,
+      "max_source_share": 0.5,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0
+    }
+  },
+  {
+    "flow_id": "10.0.0.5-GENERIC-w7",
+    "threat_class": "generic_volumetric_spoofed",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "packet_rate_per_sec": 13.0,
+      "fan_in": 2,
+      "max_source_share": 0.5385,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0
+    }
+  },
+  {
+    "flow_id": "10.0.0.5-GENERIC-w8",
+    "threat_class": "generic_volumetric_spoofed",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "packet_rate_per_sec": 12.0,
+      "fan_in": 2,
+      "max_source_share": 0.5,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0
+    }
+  },
+  {
+    "flow_id": "10.0.0.5-GENERIC-w9",
+    "threat_class": "generic_volumetric_spoofed",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "packet_rate_per_sec": 13.0,
+      "fan_in": 2,
+      "max_source_share": 0.5385,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0
+    }
+  },
+  {
+    "flow_id": "10.0.0.5-GENERIC-w10",
+    "threat_class": "generic_volumetric_spoofed",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "packet_rate_per_sec": 12.0,
+      "fan_in": 2,
+      "max_source_share": 0.5,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0
+    }
+  },
+  {
+    "flow_id": "10.0.0.5-GENERIC-w11",
+    "threat_class": "generic_volumetric_spoofed",
+    "confidence": 0.03,
+    "alert": false,
+    "evidence": {
+      "packet_rate_per_sec": 13.0,
+      "fan_in": 2,
+      "max_source_share": 0.5385,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.15
+    }
+  },
+  {
+    "flow_id": "10.0.0.5-GENERIC-w12",
+    "threat_class": "generic_volumetric_spoofed",
+    "confidence": 0.062,
+    "alert": false,
+    "evidence": {
+      "packet_rate_per_sec": 13.0,
+      "fan_in": 2,
+      "max_source_share": 0.5385,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.31
+    }
+  },
+  {
+    "flow_id": "10.0.0.5-GENERIC-w13",
+    "threat_class": "generic_volumetric_spoofed",
+    "confidence": 0.092,
+    "alert": false,
+    "evidence": {
+      "packet_rate_per_sec": 13.0,
+      "fan_in": 2,
+      "max_source_share": 0.5385,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.46
+    }
+  },
+  {
+    "flow_id": "10.0.0.5-GENERIC-w14",
+    "threat_class": "generic_volumetric_spoofed",
+    "confidence": 0.124,
+    "alert": false,
+    "evidence": {
+      "packet_rate_per_sec": 13.0,
+      "fan_in": 2,
+      "max_source_share": 0.5385,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.62
+    }
+  },
+  {
+    "flow_id": "10.0.0.5-GENERIC-w15",
+    "threat_class": "generic_volumetric_spoofed",
+    "confidence": 1.0,
+    "alert": true,
+    "evidence": {
+      "packet_rate_per_sec": 42570.0,
+      "fan_in": 42567,
+      "max_source_share": 0.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 236.93
+    }
+  },
+  {
+    "flow_id": "10.0.0.5-GENERIC-w16",
+    "threat_class": "generic_volumetric_spoofed",
+    "confidence": 1.0,
+    "alert": true,
+    "evidence": {
+      "packet_rate_per_sec": 43425.0,
+      "fan_in": 43421,
+      "max_source_share": 0.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 473.82
+    }
+  },
+  {
+    "flow_id": "10.0.0.5-GENERIC-w17",
+    "threat_class": "generic_volumetric_spoofed",
+    "confidence": 1.0,
+    "alert": true,
+    "evidence": {
+      "packet_rate_per_sec": 2726.0,
+      "fan_in": 2726,
+      "max_source_share": 0.0004,
+      "ttl_deviation": 0.0,
+      "cusum_value": 629.21
+    }
+  }
+]

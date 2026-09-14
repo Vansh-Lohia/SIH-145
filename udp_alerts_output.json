@@ -1,0 +1,130 @@
+[
+  {
+    "timestamp": "2026-09-13T06:07:55.073054Z",
+    "flow_id": "172.18.0.2-UDP-w0",
+    "threat_class": "udp_reflection_amplification",
+    "confidence": 0.2,
+    "alert": false,
+    "evidence": {
+      "udp_rate": 2.0,
+      "packet_rate_per_sec": 2.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0,
+      "total_packets": 2,
+      "orphan_score": 0.0,
+      "port_score": 1.0
+    }
+  },
+  {
+    "timestamp": "2026-09-13T06:07:56.073054Z",
+    "flow_id": "172.18.0.2-UDP-w1",
+    "threat_class": "udp_reflection_amplification",
+    "confidence": 0.2,
+    "alert": false,
+    "evidence": {
+      "udp_rate": 2.0,
+      "packet_rate_per_sec": 2.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0,
+      "total_packets": 2,
+      "orphan_score": 0.0,
+      "port_score": 1.0
+    }
+  },
+  {
+    "timestamp": "2026-09-13T06:07:57.073054Z",
+    "flow_id": "172.18.0.2-UDP-w2",
+    "threat_class": "udp_reflection_amplification",
+    "confidence": 0.2,
+    "alert": false,
+    "evidence": {
+      "udp_rate": 2.0,
+      "packet_rate_per_sec": 2.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0,
+      "total_packets": 2,
+      "orphan_score": 0.0,
+      "port_score": 1.0
+    }
+  },
+  {
+    "timestamp": "2026-09-13T06:07:58.073054Z",
+    "flow_id": "172.18.0.2-UDP-w3",
+    "threat_class": "udp_reflection_amplification",
+    "confidence": 0.2,
+    "alert": false,
+    "evidence": {
+      "udp_rate": 2.0,
+      "packet_rate_per_sec": 2.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0,
+      "total_packets": 2,
+      "orphan_score": 0.0,
+      "port_score": 1.0
+    }
+  },
+  {
+    "timestamp": "2026-09-13T06:07:59.073054Z",
+    "flow_id": "172.18.0.2-UDP-w4",
+    "threat_class": "udp_reflection_amplification",
+    "confidence": 0.2,
+    "alert": false,
+    "evidence": {
+      "udp_rate": 2.0,
+      "packet_rate_per_sec": 2.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0,
+      "total_packets": 2,
+      "orphan_score": 0.0,
+      "port_score": 1.0
+    }
+  },
+  {
+    "timestamp": "2026-09-13T06:08:00.073054Z",
+    "flow_id": "172.18.0.2-UDP-w5",
+    "threat_class": "udp_reflection_amplification",
+    "confidence": 1.0,
+    "alert": true,
+    "evidence": {
+      "udp_rate": 5.0,
+      "packet_rate_per_sec": 5.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 68.81,
+      "total_packets": 5,
+      "orphan_score": 1.0,
+      "port_score": 1.0
+    }
+  },
+  {
+    "timestamp": "2026-09-13T06:08:01.073054Z",
+    "flow_id": "172.18.0.2-UDP-w6",
+    "threat_class": "udp_reflection_amplification",
+    "confidence": 1.0,
+    "alert": true,
+    "evidence": {
+      "udp_rate": 4.0,
+      "packet_rate_per_sec": 4.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 119.4,
+      "total_packets": 4,
+      "orphan_score": 1.0,
+      "port_score": 1.0
+    }
+  },
+  {
+    "timestamp": "2026-09-13T06:08:02.073054Z",
+    "flow_id": "172.18.0.2-UDP-w7",
+    "threat_class": "udp_reflection_amplification",
+    "confidence": 1.0,
+    "alert": true,
+    "evidence": {
+      "udp_rate": 1.0,
+      "packet_rate_per_sec": 1.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 78.35,
+      "total_packets": 1,
+      "orphan_score": 1.0,
+      "port_score": 1.0
+    }
+  }
+]

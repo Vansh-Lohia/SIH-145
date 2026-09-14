@@ -1,0 +1,268 @@
+[
+  {
+    "timestamp": "2026-09-05T02:04:54.095319Z",
+    "flow_id": "10.0.0.5-TCP-w0",
+    "threat_class": "volumetric_ddos_syn_flood",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "syn_ack_ratio": 0.1,
+      "packet_rate_per_sec": 13.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0,
+      "total_packets": 13
+    }
+  },
+  {
+    "timestamp": "2026-09-05T02:04:55.095319Z",
+    "flow_id": "10.0.0.5-TCP-w1",
+    "threat_class": "volumetric_ddos_syn_flood",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "syn_ack_ratio": 0.1,
+      "packet_rate_per_sec": 13.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0,
+      "total_packets": 13
+    }
+  },
+  {
+    "timestamp": "2026-09-05T02:04:56.095319Z",
+    "flow_id": "10.0.0.5-TCP-w2",
+    "threat_class": "volumetric_ddos_syn_flood",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "syn_ack_ratio": 0.1,
+      "packet_rate_per_sec": 13.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0,
+      "total_packets": 13
+    }
+  },
+  {
+    "timestamp": "2026-09-05T02:04:57.095319Z",
+    "flow_id": "10.0.0.5-TCP-w3",
+    "threat_class": "volumetric_ddos_syn_flood",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "syn_ack_ratio": 0.1,
+      "packet_rate_per_sec": 13.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0,
+      "total_packets": 13
+    }
+  },
+  {
+    "timestamp": "2026-09-05T02:04:58.095319Z",
+    "flow_id": "10.0.0.5-TCP-w4",
+    "threat_class": "volumetric_ddos_syn_flood",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "syn_ack_ratio": 0.1,
+      "packet_rate_per_sec": 13.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0,
+      "total_packets": 13
+    }
+  },
+  {
+    "timestamp": "2026-09-05T02:04:59.095319Z",
+    "flow_id": "10.0.0.5-TCP-w5",
+    "threat_class": "volumetric_ddos_syn_flood",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "syn_ack_ratio": 0.1,
+      "packet_rate_per_sec": 13.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0,
+      "total_packets": 13
+    }
+  },
+  {
+    "timestamp": "2026-09-05T02:05:00.095319Z",
+    "flow_id": "10.0.0.5-TCP-w6",
+    "threat_class": "volumetric_ddos_syn_flood",
+    "confidence": 0.099,
+    "alert": false,
+    "evidence": {
+      "syn_ack_ratio": 0.111,
+      "packet_rate_per_sec": 12.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.5,
+      "total_packets": 12
+    }
+  },
+  {
+    "timestamp": "2026-09-05T02:05:01.095319Z",
+    "flow_id": "10.0.0.5-TCP-w7",
+    "threat_class": "volumetric_ddos_syn_flood",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "syn_ack_ratio": 0.1,
+      "packet_rate_per_sec": 13.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0,
+      "total_packets": 13
+    }
+  },
+  {
+    "timestamp": "2026-09-05T02:05:02.095319Z",
+    "flow_id": "10.0.0.5-TCP-w8",
+    "threat_class": "volumetric_ddos_syn_flood",
+    "confidence": 0.099,
+    "alert": false,
+    "evidence": {
+      "syn_ack_ratio": 0.111,
+      "packet_rate_per_sec": 12.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.5,
+      "total_packets": 12
+    }
+  },
+  {
+    "timestamp": "2026-09-05T02:05:03.095319Z",
+    "flow_id": "10.0.0.5-TCP-w9",
+    "threat_class": "volumetric_ddos_syn_flood",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "syn_ack_ratio": 0.1,
+      "packet_rate_per_sec": 13.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0,
+      "total_packets": 13
+    }
+  },
+  {
+    "timestamp": "2026-09-05T02:05:04.095319Z",
+    "flow_id": "10.0.0.5-TCP-w10",
+    "threat_class": "volumetric_ddos_syn_flood",
+    "confidence": 0.099,
+    "alert": false,
+    "evidence": {
+      "syn_ack_ratio": 0.111,
+      "packet_rate_per_sec": 12.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.5,
+      "total_packets": 12
+    }
+  },
+  {
+    "timestamp": "2026-09-05T02:05:05.095319Z",
+    "flow_id": "10.0.0.5-TCP-w11",
+    "threat_class": "volumetric_ddos_syn_flood",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "syn_ack_ratio": 0.1,
+      "packet_rate_per_sec": 13.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0,
+      "total_packets": 13
+    }
+  },
+  {
+    "timestamp": "2026-09-05T02:05:06.095319Z",
+    "flow_id": "10.0.0.5-TCP-w12",
+    "threat_class": "volumetric_ddos_syn_flood",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "syn_ack_ratio": 0.1,
+      "packet_rate_per_sec": 13.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0,
+      "total_packets": 13
+    }
+  },
+  {
+    "timestamp": "2026-09-05T02:05:07.095319Z",
+    "flow_id": "10.0.0.5-TCP-w13",
+    "threat_class": "volumetric_ddos_syn_flood",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "syn_ack_ratio": 0.1,
+      "packet_rate_per_sec": 13.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0,
+      "total_packets": 13
+    }
+  },
+  {
+    "timestamp": "2026-09-05T02:05:08.095319Z",
+    "flow_id": "10.0.0.5-TCP-w14",
+    "threat_class": "volumetric_ddos_syn_flood",
+    "confidence": 0.0,
+    "alert": false,
+    "evidence": {
+      "syn_ack_ratio": 0.1,
+      "packet_rate_per_sec": 13.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 0.0,
+      "total_packets": 13
+    }
+  },
+  {
+    "timestamp": "2026-09-05T02:04:54.095319Z",
+    "flow_id": "10.0.0.5-TCP-w15",
+    "threat_class": "volumetric_ddos_syn_flood",
+    "confidence": 1.0,
+    "alert": true,
+    "evidence": {
+      "syn_ack_ratio": 15607.0,
+      "packet_rate_per_sec": 46820.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 955.52,
+      "total_packets": 46820
+    }
+  },
+  {
+    "timestamp": "2026-09-05T02:04:55.095319Z",
+    "flow_id": "10.0.0.5-TCP-w16",
+    "threat_class": "volumetric_ddos_syn_flood",
+    "confidence": 1.0,
+    "alert": true,
+    "evidence": {
+      "syn_ack_ratio": 14152.0,
+      "packet_rate_per_sec": 42456.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 1901.26,
+      "total_packets": 42456
+    }
+  },
+  {
+    "timestamp": "2026-09-05T02:04:56.095319Z",
+    "flow_id": "10.0.0.5-TCP-w17",
+    "threat_class": "volumetric_ddos_syn_flood",
+    "confidence": 1.0,
+    "alert": true,
+    "evidence": {
+      "syn_ack_ratio": 15322.0,
+      "packet_rate_per_sec": 45966.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 2854.94,
+      "total_packets": 45966
+    }
+  },
+  {
+    "timestamp": "2026-09-05T02:04:57.095319Z",
+    "flow_id": "10.0.0.5-TCP-w18",
+    "threat_class": "volumetric_ddos_syn_flood",
+    "confidence": 1.0,
+    "alert": true,
+    "evidence": {
+      "syn_ack_ratio": 5866.0,
+      "packet_rate_per_sec": 17599.0,
+      "ttl_deviation": 0.0,
+      "cusum_value": 3712.62,
+      "total_packets": 17599
+    }
+  }
+]

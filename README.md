@@ -1,617 +1,155 @@
-# Passive Threat Detection for Critical-Infrastructure Networks
+# Volumetric / Protocol DDoS Detection 
 
-## Overview
+This repo is scoped specifically to **volumetric and protocol DDoS attacks** (threat class **a** in the problem statement: SYN floods, UDP reflection/amplification, spoofed-source floods) - one of six threat-detection branches in a larger unidirectional (read-only) network threat-detection pipeline being built by the team. It does not cover C2 beaconing, DGA/DNS tunnelling, encrypted-malware detection, recon/port-scanning, or exfiltration - those are separate branches owned by other team members.
 
-This project is a **passive AI/ML-based cyber-threat detection pipeline** designed for monitoring critical-infrastructure gateway and peering links where traffic is provided to a secure monitoring environment through a **hardware data diode or passive traffic mirror**.
+**Problem Statement:**  AI-Based Detection of Cyber Threats in Unidirectional IP Traffic
+**Organization:** National Technical Research Organisation (NTRO)
 
-The central design principle is simple:
+## Context
 
-> **Observe everything that crosses the monitored link, but never send anything back.**
+This module assumes the "data diode" constraint from the problem statement: the detection system can only passively observe traffic (packet captures / flow records) and can never send probes, complete handshakes, or push mitigation actions back across the ingest path. Detection has to work purely from what crosses the wire.
 
-The system receives a one-directional stream of network traffic and analyzes it in near real time to identify suspicious behavior, classify potential threats, assign confidence/severity scores, and present the resulting intelligence through a monitoring dashboard.
+## Planned Architecture (Full Design)
 
-The architecture is intentionally designed so that the detection system does not need to communicate with the original traffic source or destination. This makes it suitable for environments where the monitoring infrastructure must remain isolated from the production network.
+The DDoS engine runs 3 parallel, always-on branches (no pre-classification is possible since live traffic is unlabeled):
 
----
+- **Branch A - SYN flood**
+- **Branch B - UDP reflection/amplification**
+- **Branch C - Spoofed-source / generic volumetric** (protocol-agnostic catch-all)
 
-# Problem Statement
+All three branches share one feature-extraction layer to avoid recomputation, and each outputs a continuous confidence score (not a binary flag) - scores are combined at a fusion stage.
 
-Critical-infrastructure operators need continuous visibility into their gateway and peering traffic. In conventional security architectures, monitoring and detection systems may have access to two-way communication with the monitored network.
+### Windowing scheme
 
-For highly sensitive environments, this creates an undesirable risk: if the monitoring or analytics environment is compromised, it could potentially become a pathway into the production network.
+- **Primary key:** `(destination_ip, protocol)`, 10-second sliding window. Keeps stats protocol-clean - SYN ratios are only meaningful over TCP, size/port stats only over UDP - so one protocol's baseline noise doesn't mask a spike in another.
+- **Secondary:** one lightweight aggregate counter per `destination_ip` (all protocols combined) - total packets/bytes/sec. Feeds the fusion stage as an extra signal to catch multi-vector attacks (e.g. simultaneous SYN + UDP flood, each individually under per-protocol threshold).
 
-The SIH problem therefore requires a threat-detection system that operates on **passively observed, one-directional network traffic**. The system must identify malicious activity without:
+### Shared feature layer (computed once per window, reused across branches)
 
-- contacting the source or destination,
-- performing active probing,
-- completing handshakes,
-- decrypting protected payloads, or
-- sending mitigation commands back into the network.
+- Packet / byte / new-flow rate (running counters)
+- Distinct source-IP count in window ("fan-in")
+- Max single-source share - `(packets from top source IP) / (total packets in window)`
+- TCP flag counts (SYN, ACK, FIN, RST)
+- TTL-baseline deviation - observed TTL for a source IP vs. a learned per-IP baseline TTL, flags spoofing without active probing
+- Packet-size distribution stats (running mean/std)
 
-The required system should ingest traffic, extract useful information, perform detection/classification, and produce actionable security intelligence through structured alerts and a visualization dashboard.
+> Full Shannon entropy for source-IP diversity was considered and dropped for the initial build - expensive at line rate (needs a full per-source frequency map + log-sum per window). Fan-in + max-source-share approximate the same signal at O(1) cost; revisit only if this proves insufficient.
 
----
+### Branch A - SYN flood
 
-# Threats Covered
+**Features:** TCP flags containing SYN only (no ACK/FIN/RST); 1–2 packets per flow; ~40–64B per flow (header only); ~0ms flow duration; new-flows/sec spike targeting a single destination; TTL-baseline deviation as supporting evidence.
 
-The project is designed as a common detection platform capable of supporting multiple threat categories:
+**Detection logic:** ratio of SYN-only flows to completed flows (ACK/FIN present), per destination, over a 10s window, compared against a **per-destination** historical baseline. CUSUM/EWMA change-point detection on this ratio for low-latency, O(1)-cost flagging.
 
-1. **Volumetric / Protocol DDoS**
-   - SYN floods
-   - UDP reflection/amplification
-   - Spoofed-source floods
+### Branch B - UDP reflection/amplification
 
-2. **Botnet Command-and-Control (C2) Beaconing**
-   - Periodic communication
-   - Repeated connections to a small set of destinations
-   - Abnormal inter-arrival patterns
+**Features:** volumetric rate spike (shared); packet-size distribution skewed large; source port matching known abused amplification services (53/DNS, 123/NTP, 1900/SSDP, 11211/memcached, 19/chargen, 161/SNMP); orphan-response ratio (large inbound UDP with no matching prior outbound query within ~30s lookback - *visibility into the protected network's own outbound queries needs confirmation given the unidirectional setup*); distinct source-IP count (shared).
 
-3. **DGA Domains and DNS Tunnelling**
-   - High-entropy DNS names
-   - Abnormal query lengths
-   - Suspicious query/record-type patterns
+**Detection logic (continuous score):**
 
-4. **Malware in Encrypted Sessions**
-   - TLS/QUIC metadata analysis
-   - Fingerprint-based characteristics
-   - Packet-size and timing behavior
-
-5. **Reconnaissance and Port Scanning**
-   - Source fan-out across destination ports
-   - Source fan-out across destination hosts
-   - Sequential or distributed scanning behavior
-
-6. **Data Exfiltration**
-   - Unusual flow-volume patterns
-   - Asymmetric traffic behavior
-   - Abnormal outbound/inbound byte relationships
-
-These categories are deliberately handled within a **single common pipeline**, while individual detection components can use different statistical, machine-learning, or behavioral approaches depending on the threat.
-
----
-
-# Proposed Solution
-
-The proposed solution is a **modular passive threat-detection pipeline**.
-
-Rather than building one monolithic model for every type of attack, the architecture separates the common network-processing stages from the threat-specific detection logic.
-
-```text
-                  PRODUCTION NETWORK
-                         │
-                         │
-                  Gateway / Peering Link
-                         │
-                         ▼
-                ┌───────────────────┐
-                │ Passive Mirror /  │
-                │    Data Diode      │
-                └─────────┬─────────┘
-                          │
-                    ONE-WAY ONLY
-                          │
-                          ▼
-                ┌───────────────────┐
-                │ Traffic Ingestion │
-                │  PCAP / Flow Data │
-                └─────────┬─────────┘
-                          │
-                          ▼
-                ┌───────────────────┐
-                │ Preprocessing &   │
-                │ Normalization     │
-                └─────────┬─────────┘
-                          │
-                          ▼
-                ┌───────────────────┐
-                │ Feature Extraction│
-                │ & Windowing       │
-                └─────────┬─────────┘
-                          │
-              ┌───────────┼────────────┐
-              │           │            │
-              ▼           ▼            ▼
-          ┌───────┐   ┌───────┐   ┌──────────┐
-          │ DDoS  │   │  C2   │   │   DGA /  │
-          │Detector│  │Detector│  │ DNS      │
-          └───────┘   └───────┘   └──────────┘
-              │           │            │
-              ├───────────┼────────────┤
-              │           │            │
-              ▼           ▼            ▼
-          ┌───────┐   ┌───────┐   ┌──────────┐
-          │ Recon │   │Encrypted│  │Exfiltration│
-          │Detector│  │ Traffic │  │ Detector │
-          └───────┘   └───────┘   └──────────┘
-              │
-              └──────────────┬──────────────┘
-                             ▼
-                  ┌─────────────────────┐
-                  │ Detection Fusion /  │
-                  │ Scoring & Evidence  │
-                  └──────────┬──────────┘
-                             │
-                             ▼
-                  ┌─────────────────────┐
-                  │ Standardized Alerts │
-                  │ Timestamp            │
-                  │ Flow ID              │
-                  │ Threat Class         │
-                  │ Confidence            │
-                  │ Evidence              │
-                  └──────────┬──────────┘
-                             │
-                             ▼
-                  ┌─────────────────────┐
-                  │ Security Dashboard  │
-                  │ Live / Replay       │
-                  └─────────────────────┘
+```
+rate_score    = normalize(current_udp_rate / baseline_udp_rate_for_dest)
+port_score    = fraction of packets with src_port in known-abused-service set
+orphan_score  = large inbound UDP w/ no matching outbound query / total large inbound UDP
+entropy_score = shared fan-in / max-source-share value (normalized)
+confidence    = w1*rate_score + w2*port_score + w3*orphan_score + w4*entropy_score
 ```
 
-The architecture follows the SIH requirement for a working prototype containing **ingestion, feature extraction, model inference, alert generation, and visualization**.
+(weights hand-tuned for demo; learn from labeled data later)
 
----
+### Branch C - Spoofed-source / generic volumetric
 
-# How the Pipeline Works
+Protocol-agnostic catch-all for spoofed floods that don't match SYN or UDP-amplification signatures. Reuses shared features only:
 
-## 1. Passive Traffic Ingestion
-
-Traffic enters the monitoring environment through the one-way observation path.
-
-The ingestion layer is strictly read-only. It can consume sources such as:
-
-- Packet captures
-- Flow records
-- NetFlow
-- IPFIX
-- sFlow
-- Derived network metadata
-
-The system does not transmit traffic back toward the monitored network.
-
----
-
-## 2. Preprocessing
-
-Incoming traffic is converted into a consistent representation suitable for downstream analysis.
-
-This stage handles tasks such as:
-
-- parsing traffic/flow records,
-- normalization,
-- cleaning invalid records,
-- temporal organization,
-- grouping traffic into appropriate analysis windows, and
-- preparing the observations for feature extraction.
-
-The preprocessing layer is shared by the different threat detectors so that each model receives a consistent representation of the observed traffic.
-
----
-
-## 3. Feature Extraction
-
-The system does not depend on payload inspection.
-
-Instead, it derives behavioral and statistical information from what is observable in the one-way traffic stream.
-
-Depending on the threat, useful information can include:
-
-- packet and byte rates,
-- packet sizes,
-- inter-arrival times,
-- source/destination relationships,
-- destination-port behavior,
-- traffic volume,
-- entropy,
-- periodicity,
-- flow asymmetry,
-- protocol metadata,
-- TLS/QUIC fingerprints,
-- DNS characteristics,
-- host/port fan-out.
-
-This makes the architecture compatible with the fundamental passive-monitoring constraint.
-
-For example, the reconnaissance detector can reason about a source contacting many destinations or ports without needing to actively probe those systems.
-
-Research on flow-based port-scan detection similarly demonstrates that unidirectional flow information can be used to identify scanning behavior through characteristics such as flow size and variation.
-
----
-
-# 4. Threat-Specific Detection
-
-After feature extraction, the common feature stream is passed to the appropriate detection components.
-
-Each detector is responsible for identifying a particular behavioral class.
-
-The project therefore follows a **modular detection architecture**:
-
-```text
-                    Feature Stream
-                          │
-          ┌───────────────┼────────────────┐
-          │               │                │
-          ▼               ▼                ▼
-       DDoS Model      C2 Model        DNS Model
-          │               │                │
-          └───────────────┼────────────────┘
-                          │
-          ┌───────────────┼────────────────┐
-          │               │                │
-          ▼               ▼                ▼
-      Recon Model    Encrypted Model   Exfil Model
-          │               │                │
-          └───────────────┼────────────────┘
-                          ▼
-                  Detection Results
+```
+rate_score   = normalize(current_rate / baseline_rate_for_dest)
+fanin_score  = normalize(distinct_source_count)
+spread_score = 1 - max_source_share
+ttl_score    = ttl_baseline_deviation
+confidence   = w1*rate_score + w2*fanin_score + w3*spread_score + w4*ttl_score
 ```
 
-The important architectural property is that **the rest of the system does not need to know how an individual threat is detected**.
+Also boosts confidence when co-firing with the SYN or UDP branch on the same destination.
 
-A detector can use statistical analysis, sequential detection, machine learning, behavioral analysis, or another suitable method as long as its output conforms to the common detection interface.
+### Model selection
 
-This also allows individual team members to develop and evaluate their respective detectors independently while integrating them into the same overall system.
+- **Hot path** (per-packet/per-flow, must be O(1)): CUSUM/EWMA change-point detection - cheap, streaming-friendly, no training data needed.
+- **Cold path** (per-window-close, ~every 10s per destination): fusion of branch scores.
+  - Start: logistic regression over normalized sub-scores (weights learned from labeled synthetic traffic).
+  - If time allows: small gradient-boosted tree (XGBoost/LightGBM).
+- **Subtype attribution:** derived from which branch(es) contributed most, not a separate classifier.
 
----
+### Open items
 
-# 5. Detection Fusion and Scoring
+- Confirm outbound-query visibility for the UDP orphan-response check
+- Fusion weights: hand-tuned for demo vs. learned
+- Full Shannon entropy: revisit only if needed
 
-Individual detection components produce their observations and predictions.
+## What's implemented so far - Branch A: Volumetric DDoS
 
-These results are then converted into a common representation containing:
+- **Traffic generation & capture (Docker):** a 3-container lab (`victim`, `attacker`, `monitor`) simulating a passive monitoring setup. `monitor` shares `victim`'s network namespace and captures traffic via `tcpdump`, mirroring the read-only diode model - it observes everything to/from the victim but never talks back.
+- **Feature extraction (`extract_features.py`, `windowed_features.py`):** reads pcaps with `scapy`, classifies TCP packets by flag combination (SYN-only, SYN-ACK, ACK, FIN, RST), and computes windowed features (1-second buckets) - packet rate and a SYN-only-to-completed-session ratio, which is the core signal for SYN flood detection.
+- **Detection engine (`cusum_detector.py`):** a CUSUM (cumulative sum) change-point detector that learns a short baseline from early traffic, then flags sustained deviations above it. This is the "hot path" from the design - cheap, streaming-friendly, needs no training data.
 
-- threat category,
-- confidence,
-- severity,
-- relevant flow/traffic information,
-- supporting evidence.
+### Results
 
-The purpose of this layer is to turn model outputs into **security intelligence**, rather than exposing raw model predictions directly to the operator.
+Using a simulated benign baseline (15 HTTP requests over 15s) followed by a short unthrottled SYN flood (`hping3 -S --flood`):
 
----
+| Metric | Benign | Flood |
+|---|---|---|
+| SYN-only : ACK ratio | ~0.1 | 5,000–15,000+ |
+| CUSUM value | 0 (flat) | crosses alert threshold within 1 window (~1 sec) |
 
-# 6. Alert Generation
+**Detection latency:** ~1 second from attack onset - maps to the problem statement's "bounded latency, streaming not batch" requirement.
 
-The final output of the detection pipeline is a standardized alert.
+**Note on the environment:** since the Docker attacker isn't spoofing its source IP, every SYN-ACK reply is auto-RST'd by the attacker's own kernel (it never issued a real `connect()`), so the SYN:SYN-ACK ratio alone doesn't distinguish flood from benign here - the separating signal is the SYN-only vs. completed-session (ACK/FIN) ratio and raw packet rate. Real-world spoofed attacks would show this at the SYN:SYN-ACK level directly (see planned TTL-deviation feature below).
 
-The SIH specification requires structured alerts containing information such as:
+## Repo structure
 
-```text
-Timestamp
-Flow Identifier
-Threat Class
-Confidence Score
-Supporting Evidence
+```
+ddos-demo/
+├── docker-compose.yml       # 3-container lab: victim, attacker, monitor
+├── victim/Dockerfile        # simple HTTP server target
+├── attacker/Dockerfile      # hping3 + curl
+├── monitor/Dockerfile       # tcpdump, shares victim's netns
+├── extract_features.py      # Stage 1: TCP flag classification
+├── windowed_features.py     # Stage 2: time-windowed rate/ratio features
+├── cusum_detector.py        # Stage 3: CUSUM change-point detection
+└── captures/                # generated pcaps (gitignored - regenerate locally)
 ```
 
-This allows different detectors to produce results that can be consumed consistently by the dashboard and other downstream components.
+## Running the lab
 
-Example:
-
-```json
-{
-  "timestamp": "...",
-  "flow_id": "...",
-  "threat_class": "RECONNAISSANCE",
-  "confidence": 0.94,
-  "severity": "HIGH",
-  "evidence": {
-    "unique_destination_ports": 47,
-    "unique_destination_hosts": 31,
-    "observation_window": "..."
-  }
-}
+```bash
+docker compose up -d --build
 ```
 
----
+Capture benign baseline:
 
-# 7. Visualization Dashboard
-
-The dashboard provides the operator with a high-level view of detected threats.
-
-It is intended to support both:
-
-- **live/replay traffic analysis**, and
-- investigation of generated alerts.
-
-The dashboard presents information such as:
-
-- detected threat type,
-- severity,
-- confidence,
-- timestamp,
-- affected flow/source information,
-- supporting detection evidence.
-
-The dashboard is therefore the final presentation layer of the pipeline rather than part of the detection logic itself.
-
----
-
-# Core Architectural Principle
-
-The entire system can be summarized as:
-
-```text
-OBSERVE
-   ↓
-REPRESENT
-   ↓
-EXTRACT FEATURES
-   ↓
-DETECT
-   ↓
-SCORE
-   ↓
-GENERATE INTELLIGENCE
-   ↓
-DISPLAY
+```bash
+docker exec -it monitor tcpdump -i eth0 -w /captures/benign.pcap
+# in a second terminal:
+docker exec -it attacker sh -c 'for i in $(seq 1 15); do curl -s -o /dev/null http://victim; sleep 1; done'
 ```
 
-There is deliberately **no reverse path**:
+Capture flood traffic (keep it short - a few seconds of --flood generates a lot of packets):
 
-```text
-                    ┌─────────────────────┐
-                    │   Production       │
-                    │     Network        │
-                    └──────────┬──────────┘
-                               │
-                               │ traffic
-                               ▼
-                    ┌─────────────────────┐
-                    │ Passive Monitoring  │
-                    │      Enclave        │
-                    └─────────────────────┘
-
-                         NO RETURN PATH
-                              ✕
+```bash
+docker exec -it monitor tcpdump -i eth0 -w /captures/syn_flood.pcap
+# in a second terminal:
+docker exec -it attacker hping3 -S --flood -p 80 victim
 ```
 
-This is the defining property of the project.
+Run detection:
 
----
-
-# Constraints
-
-The system is designed under the following non-negotiable constraints.
-
-## 1. Strictly One-Way / Read-Only Ingest
-
-The monitoring environment receives traffic but cannot send traffic back.
-
-Therefore:
-
-- no active probing,
-- no return connection,
-- no mitigation command across the ingest path,
-- no querying the original source,
-- no querying the destination.
-
-Any solution requiring a return path is outside the intended architecture.
-
----
-
-## 2. No Payload Decryption
-
-Encrypted traffic must remain encrypted.
-
-For TLS/QUIC traffic, detection must rely on observable metadata and traffic behavior rather than decrypted payload contents.
-
-Possible information includes fingerprints, packet sizes, timing sequences, and other metadata.
-
----
-
-## 3. Passive Observation Only
-
-The system can only reason from information that is actually visible at the monitoring point.
-
-It must not assume access to information that would require communicating with the endpoints.
-
-This is especially important when designing features: a feature is valid only if it can genuinely be derived from the observed traffic.
-
----
-
-## 4. Streaming / Near Real-Time Processing
-
-The system is not intended to simply process a dataset after the fact and produce an end-of-run report.
-
-Traffic should be processed incrementally, allowing detections and alerts to be generated with bounded latency.
-
-Offline datasets and PCAP replay can be used for development and demonstration, but the architecture must remain compatible with streaming operation.
-
----
-
-## 5. Defined Throughput
-
-The prototype must explicitly state the traffic rate at which it has been tested.
-
-This may be expressed in terms such as:
-
-- flows/second,
-- packets/second, or
-- Mbps/Gbps sustained.
-
-The throughput target should therefore be treated as an engineering benchmark rather than an implicit assumption.
-
----
-
-## 6. Standardized Output
-
-Every detector must ultimately produce a common alert representation.
-
-This prevents the dashboard and downstream components from becoming tightly coupled to individual models.
-
----
-
-## 7. Observable Features Only
-
-Features must be derived from the information available through the one-way monitoring interface.
-
-A major implication is that conventional bidirectional-flow features cannot automatically be assumed to be valid.
-
-For example, CICFlowMeter-style datasets commonly contain forward and backward flow statistics. A strict one-way interpretation requires retaining only features that can genuinely be derived from the observed direction. Our work therefore treats such datasets as sources of candidate features rather than automatically assuming that their complete biflow representation satisfies the SIH constraint.
-
----
-
-# Data and Model Development
-
-The project uses offline traffic datasets and replayed traffic during development and evaluation.
-
-The development workflow is:
-
-```text
-Dataset / PCAP
-      │
-      ▼
-Feature Validation
-      │
-      ▼
-One-Way-Compatible Representation
-      │
-      ▼
-Preprocessing
-      │
-      ▼
-Feature Engineering
-      │
-      ▼
-Model Training / Detector Development
-      │
-      ▼
-Validation & Evaluation
-      │
-      ▼
-Streaming Inference
-      │
-      ▼
-Standardized Alerts
+```bash
+python cusum_detector.py
 ```
 
-An important design rule is that **training features must correspond to features that can actually be obtained during deployment**.
+## Status / Next steps
 
-This prevents a model from achieving high offline performance using information that would not be available in the real data-diode deployment.
-
----
-
-# Research Foundation
-
-The project builds on existing research into passive traffic analysis and network scanning.
-
-Prior research has shown that passive, one-way traffic measurements can provide useful cyber-threat intelligence without requiring active interaction with network endpoints.
-
-Research on port-scan detection has also explored flow-based and unidirectional approaches, including methods based on sequential hypothesis testing and traffic-flow characteristics.
-
-These ideas inform the project's broader principle:
-
-> **Malicious behavior can often be inferred from patterns in observed traffic, even when the detector cannot interact with the endpoints.**
-
----
-
-# Project Goals
-
-The overall system aims to provide:
-
-- **Passive security monitoring**
-- **One-way architecture compatibility**
-- **Near-real-time threat detection**
-- **Multiple threat-class detection**
-- **Modular AI/ML detectors**
-- **Explainable supporting evidence**
-- **Standardized alerts**
-- **Confidence and severity scoring**
-- **Live/replay visualization**
-- **Deployment suitability for isolated critical-infrastructure environments**
-
----
-
-# What the System Does NOT Do
-
-This project is intentionally **not**:
-
-- an inline firewall,
-- an active vulnerability scanner,
-- an automated penetration-testing system,
-- a packet-injection system,
-- a mitigation system with a network return path,
-- a payload-decryption system,
-- or a conventional bidirectional IDS that assumes endpoint interaction.
-
-Its role is **passive threat intelligence generation**.
-
-The system observes the network, identifies suspicious behavior, and informs the operator.
-
----
-
-# Repository Architecture
-
-The implementation is organized around the following conceptual components:
-
-```text
-project/
-│
-├── ingestion/
-│   └── Traffic / PCAP / Flow ingestion
-│
-├── preprocessing/
-│   └── Cleaning, normalization, windowing
-│
-├── features/
-│   └── Common and detector-specific features
-│
-├── detectors/
-│   ├── ddos/
-│   ├── botnet/
-│   ├── dns/
-│   ├── encrypted/
-│   ├── reconnaissance/
-│   └── exfiltration/
-│
-├── inference/
-│   └── Model execution and scoring
-│
-├── alerts/
-│   └── Standardized alert generation
-│
-├── dashboard/
-│   └── Visualization
-│
-└── evaluation/
-    └── Performance and throughput evaluation
-```
-
-The exact implementation can evolve, but the architectural separation should remain:
-
-**ingestion → preprocessing → features → detection → scoring → alerts → dashboard**
-
----
-
-# Summary
-
-This project implements a **passive, one-way AI/ML threat-detection architecture for critical-infrastructure networks**.
-
-Its key innovation is not simply the use of machine learning, but the requirement that the entire detection lifecycle operates under the constraints of a **data-diode-fed monitoring environment**.
-
-The system therefore combines multiple specialized threat detectors behind a common streaming pipeline while enforcing the same fundamental rules across the project:
-
-```text
-                ONE-WAY TRAFFIC
-                       │
-                       ▼
-              PASSIVE INGESTION
-                       │
-                       ▼
-             FEATURE EXTRACTION
-                       │
-                       ▼
-             THREAT DETECTION
-                       │
-                       ▼
-              SCORING + EVIDENCE
-                       │
-                       ▼
-              STANDARDIZED ALERT
-                       │
-                       ▼
-                  DASHBOARD
-```
-
-The result is a security monitoring system that can provide actionable threat intelligence **without ever needing to communicate back with the monitored network**.
+- [x] SYN flood detection - feature extraction + CUSUM, demonstrated on real captured traffic
+- [ ] UDP reflection/amplification detection (Branch B)
+- [ ] TTL-baseline deviation feature (requires spoofed-source traffic to demonstrate meaningfully)
+- [ ] Fusion layer (logistic regression / XGBoost) - deferred until multiple branches exist to fuse
+- [ ] Standardized alert schema output

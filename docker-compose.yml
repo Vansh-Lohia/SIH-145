@@ -16,12 +16,12 @@ services:
       - labnet
     depends_on:
       - victim
-    tty: true          # keeps it alive so you can exec in and run hping3 manually
+    tty: true
 
   monitor:
     build: ./monitor
     container_name: monitor
-    network_mode: "service:victim"   # shares victim's netns — sees its traffic
+    network_mode: "service:victim"
     cap_add:
       - NET_RAW
       - NET_ADMIN
@@ -29,6 +29,14 @@ services:
       - victim
     volumes:
       - ./captures:/captures
+
+  dns_server:
+    build: ./dns_server
+    container_name: dns_server
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - labnet
 
 networks:
   labnet:
