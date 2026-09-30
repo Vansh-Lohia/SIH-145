@@ -1,0 +1,47 @@
+{
+  "updated": "2026-09-30",
+  "detectors": [
+    {
+      "name": "Encrypted Malware",
+      "status": "MEASURED",
+      "headline": "AUC 0.99–1.00 on 4 of 5 unseen malware families",
+      "detail": "90% recall at 0.1% false alarms on 2025 Lumma Stealer (TLS 1.3), a family never seen in training.",
+      "method": "Leave-one-family-out on real Stratosphere CTU + 2025 in-the-wild captures · 27,349 real TLS sessions · JA4 + packet shape/timing, never decrypted"
+    },
+    {
+      "name": "Port Scanning",
+      "status": "MEASURED",
+      "headline": "~84% recall · 0 false positives",
+      "detail": "Slow scans detected up to 45 s between probes · ~73,000 flows/s per core.",
+      "method": "Source-disjoint replay: a separately captured batch from attacker IPs never seen in training"
+    },
+    {
+      "name": "Data Exfiltration",
+      "status": "MEASURED",
+      "headline": "13/13 held-out attacks caught",
+      "detail": "25/27 real exfiltration-shaped flows in public CIC-IDS2018 · 5–14 ms per flow.",
+      "method": "Independently generated held-out batch with different sizes/timing, plus unmodified model on CIC-IDS2018"
+    },
+    {
+      "name": "DGA / DNS Tunnelling",
+      "status": "MEASURED",
+      "headline": "72% mean recall on 136 unseen DGA families",
+      "detail": "Median 88% · 77 of 136 families above 80% recall (random-split recall: 88%).",
+      "method": "Leave-one-family-out on DGArchive + Tranco top-1M · 894,756 real domains"
+    },
+    {
+      "name": "Volumetric DDoS",
+      "status": "DEMONSTRATED",
+      "headline": "SYN flood flagged within 1 second",
+      "detail": "Three branches: SYN flood · UDP reflection/amplification · spoofed-source flood.",
+      "method": "Docker attacker / victim / passive-monitor lab · CUSUM change-point detection"
+    },
+    {
+      "name": "Botnet C2 Beaconing",
+      "status": "IN PROGRESS",
+      "headline": "Full beacon-interval pipeline running",
+      "detail": "Windowing, periodicity features and scenario-disjoint evaluation implemented end to end.",
+      "method": "CTU-13 scenario-split validation on real botnet captures — results will appear here"
+    }
+  ]
+}
