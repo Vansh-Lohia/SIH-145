@@ -146,10 +146,3 @@ Run detection:
 python cusum_detector.py
 ```
 
-## Status / Next steps
-
-- [x] SYN flood detection - feature extraction + CUSUM, demonstrated on real captured traffic
-- [ ] UDP reflection/amplification detection (Branch B)
-- [ ] TTL-baseline deviation feature (requires spoofed-source traffic to demonstrate meaningfully)
-- [ ] Fusion layer (logistic regression / XGBoost) - deferred until multiple branches exist to fuse
-- [ ] Standardized alert schema output
